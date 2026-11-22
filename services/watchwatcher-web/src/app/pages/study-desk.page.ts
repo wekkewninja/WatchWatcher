@@ -5,21 +5,26 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { api } from '../../api';
-import type { StudySnapshot } from '../domain-types';
-import { StorageRepository } from '../core/storage-repository.service';
+import type { ColregsRule, StudySnapshot } from '../domain-types';
+import { selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise, type RuleExerciseSummary } from '../core/student-memory.service';
 
 @Component({
   standalone: true,
   imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule],
   template: `
     <section class="hero-panel">
-      <span class="hero-kicker"><span class="status-dot"></span> Practice scenario · COLREGs / IRPCS</span>
-      <h1>Rule 19 restricted visibility</h1>
-        <p>Review radar targets and avoiding action in restricted visibility. Your study record stays available offline.</p>
-      <div class="hero-actions">
-        <a mat-flat-button routerLink="/examiner"><mat-icon>arrow_forward</mat-icon> Resume Rule 19</a>
-        <a mat-stroked-button routerLink="/syllabus"><mat-icon>map</mat-icon> View syllabus</a>
-      </div>
+      <span class="hero-kicker"><span class="status-dot"></span> Your COLREGs practice</span>
+      @if (nextRule(); as rule) {
+        <h1>{{ rule.ruleNumber }} · {{ rule.title }}</h1>
+        <p>{{ completedRuleExercises() }} of {{ ruleCount() }} practice entries completed. {{ nextRuleSummary()?.completed ? 'Review this entry to strengthen recall.' : 'Continue with your next unfinished exercise.' }}</p>
+        <div class="hero-actions">
+          <a mat-flat-button [routerLink]="['/colregs', rule.id]"><mat-icon>arrow_forward</mat-icon> {{ nextRuleSummary()?.attempts ? 'Resume exercise' : 'Start exercise' }}</a>
+          <a mat-stroked-button routerLink="/examiner"><mat-icon>quiz</mat-icon> Practice workspace</a>
+          <a mat-stroked-button routerLink="/syllabus"><mat-icon>map</mat-icon> View syllabus</a>
+        </div>
+      } @else {
+        <h1>Rule practice unavailable</h1><p>Bundled COLREGs practice could not be loaded.</p>
+      }
       <svg class="hero-mesh" aria-hidden="true" viewBox="0 0 800 300" preserveAspectRatio="none">
         <defs>
           <radialGradient id="mesh-a"><stop offset="0" stop-color="#e97c62" stop-opacity=".55"/><stop offset="1" stop-color="#e97c62" stop-opacity="0"/></radialGradient>
@@ -63,12 +68,16 @@ import { StorageRepository } from '../core/storage-repository.service';
 })
 export class StudyDeskPage implements OnInit {
   readonly snapshot = signal<StudySnapshot | null>(null);
+  readonly nextRule = signal<ColregsRule | null>(null);
+  readonly nextRuleSummary = signal<RuleExerciseSummary | null>(null);
+  readonly completedRuleExercises = signal(0);
+  readonly ruleCount = signal(0);
   readonly loading = signal(true);
   readonly error = signal('');
   readonly syncing = signal(false);
   readonly syncMessage = signal('');
 
-  constructor(private readonly storage: StorageRepository) {}
+  constructor(private readonly memory: StudentMemoryService) {}
 
   ngOnInit(): void { void this.load(); }
 
@@ -76,13 +85,13 @@ export class StudyDeskPage implements OnInit {
     this.loading.set(true);
     this.error.set('');
     try {
-      const current = await api.getStudySnapshot();
-        let progress = await this.storage.loadProgress();
-        if (!progress) {
-          try { progress = await api.getProgress(); }
-          catch { progress = { topicMastery: {}, weakSpotLog: [], drillQueue: [] }; }
-          await this.storage.saveProgress(progress);
-      }
+      const [current, rules] = await Promise.all([api.getStudySnapshot(), api.searchColregs('')]);
+      const progress = await this.memory.loadAndMergeCloudProgress();
+      const nextRule = selectNextRuleExercise(rules, progress);
+      this.nextRule.set(nextRule);
+      this.nextRuleSummary.set(nextRule ? summarizeRuleExercise(nextRule.id, progress) : null);
+      this.ruleCount.set(rules.length);
+      this.completedRuleExercises.set(rules.filter((rule) => summarizeRuleExercise(rule.id, progress).completed).length);
         current.topics = current.topics.map((topic) => {
           const mastery = progress.topicMastery[topic.id] ?? 0;
           return { ...topic, mastery, state: mastery >= topic.passThreshold ? 'ready' : mastery > 0 ? 'retry' : 'remediation' };
@@ -101,12 +110,7 @@ export class StudyDeskPage implements OnInit {
     this.syncing.set(true);
     this.syncMessage.set('');
     try {
-        let local = await this.storage.loadProgress();
-        if (!local) {
-          local = await api.getProgress();
-          await this.storage.saveProgress(local);
-        }
-      const result = await api.syncProgress(local);
+      const result = await this.memory.syncProgress();
       this.syncMessage.set(`Synced ${new Date(result.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
     } catch (error) {
       this.syncMessage.set(error instanceof Error ? `${error.message} Local progress is unchanged.` : 'Sync failed. Local progress is unchanged.');

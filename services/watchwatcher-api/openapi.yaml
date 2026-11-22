@@ -10,6 +10,55 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    RuleExerciseAttempt:
+      type: object
+      required: [id, ruleId, selectedOptionId, correct, attemptedAt]
+      properties:
+        id: { type: string, format: uuid }
+        ruleId: { type: string, pattern: '^(rule-(?:[1-9]|[1-3][0-9]|4[01])|annex-(?:i|ii|iii|iv))$' }
+        selectedOptionId: { type: string, enum: [a, b, c, d] }
+        correct: { type: boolean }
+        attemptedAt: { type: string, format: date-time }
+    ProgressSnapshot:
+      type: object
+      required: [topicMastery, weakSpotLog, drillQueue, ruleExerciseAttempts]
+      properties:
+        topicMastery:
+          type: object
+          additionalProperties: { type: number, minimum: 0, maximum: 100 }
+        weakSpotLog:
+          type: array
+          items:
+            type: object
+            required: [topicId, tag, timestamp]
+            properties:
+              topicId: { type: string }
+              tag: { type: string }
+              timestamp: { type: string, format: date-time }
+        drillQueue:
+          type: array
+          items: { type: string }
+        ruleExerciseAttempts:
+          type: array
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/RuleExerciseAttempt' }
+    ProgressSyncRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProgressSnapshot'
+        - type: object
+          required: [revision]
+          properties:
+            revision: { type: integer, minimum: 0 }
+    StoredProgress:
+      allOf:
+        - $ref: '#/components/schemas/ProgressSnapshot'
+        - type: object
+          required: [accountId, revision, syncedAt]
+          properties:
+            accountId: { type: string, format: uuid }
+            revision: { type: integer, minimum: 0 }
+            syncedAt: { type: string, format: date-time, nullable: true }
 paths:
   /health:
     get:
@@ -43,12 +92,21 @@ paths:
   /progress:
     get:
       security: [{ bearerAuth: [] }]
-      summary: Read the signed-in account progress snapshot
+      summary: Read progress for the authenticated account
       responses:
-        '200': { description: Progress snapshot }
+        '200':
+          description: Account progress snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredProgress' }
     put:
       security: [{ bearerAuth: [] }]
       summary: Synchronize local progress with revision checking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProgressSyncRequest' }
       responses:
         '200': { description: Progress synchronized }
         '409': { description: Stale revision }

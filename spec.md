@@ -41,6 +41,9 @@
   - `topic_mastery`: Map of `topic_id -> double` (exponential moving average of scores).
   - `weak_spot_log`: Chronological list of unresolved misconceptions (`topic_id`, `topic_title`, `tag`, `timestamp`).
   - `drill_queue`: Spaced-repetition queue that surfaces past weak spots as "Surprise Examiner Drills."
+  - `rule_exercise_attempts`: Append-only COLREGs exercise events (`id`, `ruleId`, `selectedOptionId`, `correct`, `attemptedAt`). Attempt count, accuracy, completion (at least one correct answer), and last-attempt time are derived per rule from these events.
+- Namespace IndexedDB snapshots by authenticated account ID; keep guest data in a separate namespace. Upgrade the legacy shared `current` snapshot to guest-only storage and never assign it to whichever account signs in next.
+- When signed in, merge local and cloud snapshots by stable attempt ID before syncing with the existing revision contract. Duplicate events are idempotent; if sync fails or conflicts, retain the merged local copy and reconcile on a later sync attempt.
 
 ### D. Account, Authentication & Cloud Progress Sync
 - Sign-in is optional for using the app and required only for account-scoped cloud sync and online Gemini evaluation.

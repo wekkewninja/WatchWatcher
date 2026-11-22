@@ -10,7 +10,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { RouterLink } from '@angular/router';
 import { api } from '../../api';
 import type { StudyModule } from '../domain-types';
-import { StorageRepository } from '../core/storage-repository.service';
+import { StudentMemoryService } from '../core/student-memory.service';
 
 @Component({
   standalone: true,
@@ -58,7 +58,7 @@ export class SyllabusPage implements OnInit {
   readonly error = signal('');
   readonly standard = signal<'RYA' | 'ASA'>('RYA');
 
-  constructor(private readonly storage: StorageRepository) {}
+  constructor(private readonly memory: StudentMemoryService) {}
 
   ngOnInit(): void { void this.load(); }
   async load(): Promise<void> {
@@ -66,12 +66,7 @@ export class SyllabusPage implements OnInit {
     this.error.set('');
     try {
       const modules = await api.getModules();
-      let progress = await this.storage.loadProgress();
-      if (!progress) {
-        try { progress = await api.getProgress(); }
-        catch { progress = { topicMastery: {}, weakSpotLog: [], drillQueue: [] }; }
-        await this.storage.saveProgress(progress);
-      }
+      const progress = await this.memory.loadAndMergeCloudProgress();
       this.modules.set(modules.map((module) => {
         const masteryValues = module.topicIds.map((topicId) => progress.topicMastery[topicId] ?? 0);
         const mastery = masteryValues.length ? Math.round(masteryValues.reduce((total, value) => total + value, 0) / masteryValues.length) : 0;

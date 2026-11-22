@@ -14,6 +14,15 @@ describe('API input contracts', () => {
 
   it('rejects stale or malformed progress revision data', () => {
     expect(progressSyncSchema.safeParse({ topicMastery: {}, weakSpotLog: [], drillQueue: [], revision: 0 }).success).toBe(true);
+    const attempt = {
+      id: '32f63760-6b39-4f06-935e-430251d1b785',
+      ruleId: 'rule-19',
+      selectedOptionId: 'b',
+      correct: true,
+      attemptedAt: '2026-11-22T12:00:00.000Z',
+    };
+    expect(progressSyncSchema.safeParse({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [attempt], revision: 0 }).success).toBe(true);
+    expect(progressSyncSchema.safeParse({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [{ ...attempt, selectedOptionId: 'e' }], revision: 0 }).success).toBe(false);
     expect(progressSyncSchema.safeParse({ topicMastery: { topic: 120 }, weakSpotLog: [], drillQueue: [], revision: -1 }).success).toBe(false);
   });
 });
