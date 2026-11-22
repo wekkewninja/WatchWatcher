@@ -36,6 +36,13 @@ interface ColregsAsset {
     title: string;
     category: string;
     summary: string;
+    official_text?: {
+      source_url: string;
+      source_updated_on: string;
+      checked_on: string;
+      international: string[];
+      inland?: string[];
+    };
     memory_hook: string;
     asa_inland_note: string;
     key_points: string[];
@@ -231,6 +238,8 @@ function parseColregs(value: unknown): ColregsAsset {
     rules: array(root['rules'], 'COLREGs rules').map((ruleValue) => {
       const rule = object(ruleValue, 'COLREGs rule');
       const exercise = object(rule['exercise'], 'COLREGs exercise');
+      const officialTextValue = rule['official_text'];
+      const officialText = officialTextValue === undefined ? undefined : object(officialTextValue, 'official COLREGs text');
       const options = array(exercise['options'], 'COLREGs exercise options').map((optionValue) => {
         const option = object(optionValue, 'COLREGs exercise option');
         return { id: text(option['id'], 'COLREGs option id'), text: text(option['text'], 'COLREGs option text') };
@@ -244,6 +253,13 @@ function parseColregs(value: unknown): ColregsAsset {
         title: text(rule['title'], 'rule title'),
         category: text(rule['category'], 'rule category'),
         summary: text(rule['summary'], 'rule summary'),
+        official_text: officialText === undefined ? undefined : {
+          source_url: text(officialText['source_url'], 'official COLREGs source URL'),
+          source_updated_on: text(officialText['source_updated_on'], 'official COLREGs source update date'),
+          checked_on: text(officialText['checked_on'], 'official COLREGs check date'),
+          international: array(officialText['international'], 'International rule paragraphs').map((paragraph) => text(paragraph, 'International rule paragraph')),
+          inland: officialText['inland'] === undefined ? undefined : array(officialText['inland'], 'Inland rule paragraphs').map((paragraph) => text(paragraph, 'Inland rule paragraph')),
+        },
         memory_hook: text(rule['memory_hook'], 'memory hook'),
         asa_inland_note: text(rule['asa_inland_note'], 'ASA Inland note'),
         key_points: array(rule['key_points'], 'COLREGs key points').map((point) => text(point, 'COLREGs key point')),
@@ -374,6 +390,13 @@ export const liveClient: ApiClient = {
       title: rule.title,
       category: rule.category,
       summary: rule.summary,
+      officialText: rule.official_text === undefined ? undefined : {
+        sourceUrl: rule.official_text.source_url,
+        sourceUpdatedOn: rule.official_text.source_updated_on,
+        checkedOn: rule.official_text.checked_on,
+        international: rule.official_text.international,
+        inland: rule.official_text.inland,
+      },
       memoryHook: rule.memory_hook,
       asaInlandNote: rule.asa_inland_note,
       keyPoints: rule.key_points,

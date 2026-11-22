@@ -13,6 +13,13 @@ const practiceRule: ColregsRule = {
   title: 'Application',
   category: 'General',
   summary: 'Identify the applicable rule set and local provisions.',
+  officialText: {
+    sourceUrl: 'https://www.navcen.uscg.gov/navigation-rules-amalgamated#rule1',
+    sourceUpdatedOn: '2026-11-16',
+    checkedOn: '2026-11-22',
+    international: ['(a) International wording.'],
+    inland: ['(a) U.S. Inland wording.'],
+  },
   memoryHook: 'Check the waterway first.',
   asaInlandNote: 'Local rules may apply.',
   keyPoints: ['Identify the applicable waters.', 'Check valid local provisions.'],
@@ -61,7 +68,7 @@ describe('ColregsRulePage practice exercise', () => {
     expect(host.textContent).toContain(practiceRule.exercise.prompt);
     expect(host.querySelectorAll('.rule-key-points li')).toHaveLength(2);
 
-    const checkButton = host.querySelector('button') as HTMLButtonElement;
+    const checkButton = host.querySelector('.rule-practice-card button') as HTMLButtonElement;
     const incorrectOption = host.querySelector('input[value="a"]') as HTMLInputElement;
     incorrectOption.click();
     fixture.detectChanges();
@@ -81,5 +88,27 @@ describe('ColregsRulePage practice exercise', () => {
     expect(host.querySelector('.exercise-feedback')?.classList.contains('correct')).toBe(true);
     expect(host.querySelector('.exercise-feedback')?.textContent).toContain(practiceRule.exercise.explanation);
     expect(recordAttempt).toHaveBeenNthCalledWith(2, 'rule-1', 'b', 'b');
+  });
+
+  it('keeps official wording collapsed and switches between International and Inland variants', async () => {
+    const fixture = TestBed.createComponent(ColregsRulePage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const details = host.querySelector('.official-wording') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(host.querySelector('.official-paragraphs')?.textContent).toContain('(a) International wording.');
+    expect(host.querySelector('.official-paragraphs')?.textContent).not.toContain('U.S. Inland wording.');
+    expect(host.querySelector('.official-source a')?.getAttribute('href')).toBe(practiceRule.officialText?.sourceUrl);
+
+    const inlandButton = host.querySelectorAll('.official-mode-control button')[1] as HTMLButtonElement;
+    inlandButton.click();
+    fixture.detectChanges();
+
+    expect(inlandButton.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('.official-paragraphs')?.textContent).toContain('(a) U.S. Inland wording.');
+    expect(host.querySelector('.official-source')?.textContent).toContain('U.S. Inland Rules');
   });
 });

@@ -8,6 +8,13 @@ const catalog = catalogAsset as {
     title: string;
     category: string;
     summary: string;
+    official_text?: {
+      source_url: string;
+      source_updated_on: string;
+      checked_on: string;
+      international: string[];
+      inland?: string[];
+    };
     memory_hook: string;
     asa_inland_note: string;
     key_points: string[];
@@ -59,6 +66,10 @@ describe('COLREGs catalog', () => {
     expect(results).toHaveLength(45);
     expect(rule1?.id).toBe('rule-1');
     expect(rule1?.exercise.options).toHaveLength(4);
+    expect(rule1?.officialText?.international).toHaveLength(5);
+    expect(rule1?.officialText?.international[0]).toContain('high seas');
+    expect(rule1?.officialText?.inland?.[0]).toContain('inland waters of the United States');
+    expect(rule1?.officialText?.sourceUpdatedOn).toBe('2026-11-16');
     expect(rule41?.id).toBe('rule-41');
     expect(annex1?.id).toBe('annex-i');
     expect(await liveClient.searchColregs('towing')).not.toHaveLength(0);
