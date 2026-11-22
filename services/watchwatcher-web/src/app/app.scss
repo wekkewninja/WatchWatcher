@@ -1,0 +1,16 @@
+:host { display: block; min-height: 100dvh; }
+.topbar { position: sticky; z-index: 10; top: 0; background: var(--surface-raised); border-bottom: 1px solid var(--line); box-shadow: 0 2px 6px #172b2a0a; }
+.brand-toolbar { min-height: 58px; height: auto; padding: 0 clamp(14px, 3vw, 36px); background: var(--surface-raised); color: var(--ink); }
+.brand-lockup { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-size: 15px; font-weight: 700; text-decoration: none; line-height: 1.15; }
+.brand-lockup small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 400; }
+.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 4px; background: var(--brand-primary); color: #fff; }
+.brand-mark mat-icon { font-size: 20px; }
+.toolbar-spacer { flex: 1; }
+.user-name { display: flex; align-items: center; gap: 8px; margin-right: 8px; color: var(--muted); font-size: 12px; }
+.user-avatar { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid color-mix(in srgb, var(--brand-primary) 22%, var(--line)); border-radius: 50%; color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 8%, var(--surface-raised)); font-weight: 700; }
+.primary-nav { display: flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 clamp(10px, 2.5vw, 32px); overflow-x: auto; border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent); }
+.primary-nav a { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px; border-radius: 4px; color: var(--muted); white-space: nowrap; text-decoration: none; font-size: 12px; }
+.primary-nav a mat-icon, .nav-end mat-icon { width: 18px; height: 18px; font-size: 18px; }
+.primary-nav a.active { color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 9%, transparent); font-weight: 700; }
+.nav-end { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding-left: 12px; color: var(--muted); white-space: nowrap; font-size: 11px; }
+@media (max-width: 700px) { .nav-end { display: none; } .primary-nav { padding-inline: 8px; } .primary-nav a { padding-inline: 10px; } .user-name { font-size: 0; } }

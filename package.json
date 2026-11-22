@@ -1,0 +1,16 @@
+{
+  "name": "watchwatcher",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["services/watchwatcher-web", "services/watchwatcher-api"],
+  "scripts": {
+    "build": "npm run build --workspace services/watchwatcher-web && npm run build --workspace services/watchwatcher-api",
+    "build:web": "npm run build --workspace services/watchwatcher-web",
+    "build:api": "npm run build --workspace services/watchwatcher-api",
+    "test": "npm test --workspace services/watchwatcher-web && npm test --workspace services/watchwatcher-api",
+    "test:web": "npm test --workspace services/watchwatcher-web",
+    "test:api": "npm test --workspace services/watchwatcher-api",
+    "emulators:start": "docker compose up -d postgres azurite",
+    "emulators:stop": "docker compose down"
+  }
+}

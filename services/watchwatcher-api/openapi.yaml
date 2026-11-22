@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: WatchWatcher API
+  version: 1.0.0
+servers:
+  - url: /api
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /health:
+    get:
+      summary: Health check for the optional API and service dependencies
+      responses:
+        '200': { description: Healthy or degraded }
+        '503': { description: Unhealthy }
+  /auth/register:
+    post:
+      summary: Create an account and start a session
+      responses:
+        '201': { description: Account created }
+        '409': { description: Duplicate account }
+  /auth/login:
+    post:
+      summary: Start an authenticated session
+      responses:
+        '200': { description: Session created }
+        '401': { description: Invalid credentials }
+  /auth/session:
+    post:
+      summary: Exchange credentials for an account session
+      responses:
+        '200': { description: Session created }
+  /auth/me:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the current user
+      responses:
+        '200': { description: Current user }
+  /progress:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the signed-in account progress snapshot
+      responses:
+        '200': { description: Progress snapshot }
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Synchronize local progress with revision checking
+      responses:
+        '200': { description: Progress synchronized }
+        '409': { description: Stale revision }
+  /exam/evaluate:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Evaluate an answer online with deterministic fallback
+      responses:
+        '200': { description: Structured evaluation }

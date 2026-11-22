@@ -1,6 +1,6 @@
 # Project Plan
 
-**Status**: Planning
+**Status**: Integrating
 **Created**: 2026-11-21
 **Mode**: NEW
 
@@ -65,24 +65,26 @@ The Angular PWA runs in browsers on Android, Linux desktop, and the web, with a 
 
 ## 5. Prerequisites
 
-Verify every `❓` tool before running or debugging. Docker is the selected emulator runtime; its CLI is present, but the engine was not reachable during this scan.
+Verify every `❓` tool before running or debugging. Docker is the selected emulator runtime; its CLI is present, but the engine was not reachable during this recheck.
+
+Run prerequisites rechecked on 2026-11-22. Node.js, npm, Azure Functions Core Tools, Docker CLI, Docker Compose, and Chrome were detected. The Docker engine was not reachable; the Azure Functions VS Code extension was not found in the checked extension folders.
 
 ### Run
 
 | Tool | Service(s) | Installed | Version |
 |------|------------|-----------|---------|
-| Node.js | WatchWatcher Web, WatchWatcher API | ❓ | Not confirmed |
-| npm | WatchWatcher Web, WatchWatcher API | ❓ | Not confirmed |
-| Azure Functions Core Tools | WatchWatcher API | ❓ | Not confirmed |
+| Node.js | WatchWatcher Web, WatchWatcher API | ✅ | v26.13.1 |
+| npm | WatchWatcher Web, WatchWatcher API | ✅ | 11.20.0 |
+| Azure Functions Core Tools | WatchWatcher API | ✅ | 4.17.0 |
 
 ### Debug
 
 | Tool | Service(s) | Installed | Version |
 |------|------------|-----------|---------|
-| Docker | WatchWatcher API, PostgreSQL, Blob Storage emulators | ❓ | CLI 29.1.4; engine not reachable |
+| Docker | WatchWatcher API, PostgreSQL, Blob Storage emulators | ❓ | CLI 29.1.4-rd; engine not reachable |
 | Docker Compose | WatchWatcher API, PostgreSQL, Blob Storage emulators | ✅ | v5.0.1 |
 | Chrome | WatchWatcher Web | ✅ | 157.0.8103.80 |
-| `ms-azuretools.vscode-azurefunctions` | WatchWatcher API | ❓ | Not confirmed |
+| `ms-azuretools.vscode-azurefunctions` | WatchWatcher API | ❓ | Not found in checked VS Code extension folders |
 
 ---
 

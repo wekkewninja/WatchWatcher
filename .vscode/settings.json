@@ -1,5 +1,16 @@
 {
     "chat.editor.preferCopilotHarness": false,
     "chat.defaultToCopilotHarness": false,
-    "chat.agent.maxRequests": 9999
+    "chat.agent.maxRequests": 9999,
+    "azureFunctions.showProjectWarning": false,
+    "azureFunctions.validateEmulators": false,
+    "debug.onTaskErrors": "debugAnyway",
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/.azurite": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.azurite": true
+    }
 }

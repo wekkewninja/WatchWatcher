@@ -1,0 +1,29 @@
+export interface AppConfig {
+  environment: string;
+  databaseUrl: string | undefined;
+  jwtSecret: string | undefined;
+  jwtIssuer: string;
+  jwtAudience: string;
+  geminiApiKey: string | undefined;
+  azureStorageAccount: string | undefined;
+  azuriteConnectionString: string | undefined;
+}
+
+export function requireSetting(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+export function loadConfig(): AppConfig {
+  return {
+    environment: process.env.AZURE_FUNCTIONS_ENVIRONMENT ?? 'Production',
+    databaseUrl: process.env.DATABASE_URL,
+    jwtSecret: process.env.JWT_SECRET,
+    jwtIssuer: process.env.JWT_ISSUER ?? 'watchwatcher-api',
+    jwtAudience: process.env.JWT_AUDIENCE ?? 'watchwatcher-app',
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    azureStorageAccount: process.env.AZURE_STORAGE_ACCOUNT,
+    azuriteConnectionString: process.env.AZURITE_CONNECTION_STRING,
+  };
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app-shell",
+      "installMode": "prefetch",
+      "resources": {
+        "files": ["/favicon.ico", "/index.html", "/*.css", "/*.js"]
+      }
+    },
+    {
+      "name": "bundled-study-content",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": ["/assets/**", "/*.webmanifest"]
+      }
+    }
+  ]
+}

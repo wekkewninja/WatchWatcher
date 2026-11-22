@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "watchwatcher-api: npm install",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/services/watchwatcher-api" },
+      "problemMatcher": [],
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "shell",
+      "label": "watchwatcher-api: npm clean",
+      "command": "npm run clean",
+      "options": { "cwd": "${workspaceFolder}/services/watchwatcher-api" },
+      "dependsOn": ["watchwatcher-api: npm install"],
+      "problemMatcher": [],
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "shell",
+      "label": "watchwatcher-api: npm watch",
+      "command": "npm run build -- --watch",
+      "options": { "cwd": "${workspaceFolder}/services/watchwatcher-api" },
+      "dependsOn": ["watchwatcher-api: npm clean"],
+      "isBackground": true,
+      "problemMatcher": "$tsc-watch",
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "shell",
+      "label": "watchwatcher-api: npm build",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/services/watchwatcher-api" },
+      "dependsOn": ["watchwatcher-api: npm clean"],
+      "problemMatcher": "$tsc",
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "shell",
+      "label": "Start Emulators",
+      "command": "docker compose up -d postgres azurite",
+      "problemMatcher": [],
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "shell",
+      "label": "watchwatcher-api: migrate",
+      "command": "docker compose run --rm db-migrate",
+      "problemMatcher": [],
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "func",
+      "label": "watchwatcher-api: func host start",
+      "command": "host start",
+      "options": {
+        "cwd": "${workspaceFolder}/services/watchwatcher-api",
+        "env": { "languageWorkers__node__arguments": "--inspect=9229" }
+      },
+      "dependsOn": [
+        "watchwatcher-api: npm watch",
+        "Start Emulators",
+        "watchwatcher-api: migrate"
+      ],
+      "dependsOrder": "sequence",
+      "isBackground": true,
+      "problemMatcher": "$func-node-watch",
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "type": "shell",
+      "label": "watchwatcher-web: dev",
+      "command": "npm start -- --port 4200",
+      "options": { "cwd": "${workspaceFolder}/services/watchwatcher-web" },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "angular",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Initial chunk files",
+          "endsPattern": "Application bundle generation complete"
+        }
+      },
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    },
+    {
+      "label": "debug-all-services: start",
+      "dependsOn": [
+        "watchwatcher-api: func host start",
+        "watchwatcher-web: dev"
+      ],
+      "dependsOrder": "sequence",
+      "runOptions": { "instanceLimit": 1, "instancePolicy": "silent" }
+    }
+  ]
+}

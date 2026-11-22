@@ -1,0 +1,178 @@
+{
+  "app_name": "WatchWatcher",
+  "version": "1.0.0",
+  "modules": [
+    {
+      "id": "mod_1_colregs",
+      "title": "COLREGs / IRPCS",
+      "pass_threshold": 0.85,
+      "topics": [
+        {
+          "id": "colregs_steering_rules", "rule_ref": "Rules 5–18", "title": "Look-out, collision risk & steering rules",
+          "summary": "Maintain a proper look-out, assess constant bearing and decreasing range, make bold early alterations, and apply the give-way hierarchy.",
+          "asa_note": "Inland Rule 34 sound-signal intent differs from the International Rule.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "colregs-steering-1", "prompt": "You are motor-sailing close-hauled on starboard tack and meet a pure sailing vessel on port tack. Who gives way?", "expected_keywords": ["power-driven", "keep clear", "rule 18"], "forbidden_keywords": ["stand on", "port tack gives way to starboard"], "correct_explanation": "A vessel under sail with its engine engaged is treated as power-driven; apply Rule 18 and keep clear of the sailing vessel.", "deep_remediation": "Separate propulsion status from sail trim. Identify whether the engine is engaged, then apply the Rule 18 hierarchy." },
+            { "id": "colregs-steering-2", "prompt": "A ship is overtaking from astern and does not appear to be taking action. What is your response?", "expected_keywords": ["rule 13", "overtaking", "keep clear", "rule 17"], "forbidden_keywords": ["assume it will turn", "maintain course regardless"], "correct_explanation": "The overtaking vessel keeps clear under Rule 13. As stand-on vessel, monitor and act under Rule 17 if collision cannot otherwise be avoided.", "deep_remediation": "Confirm the overtaking sector, maintain a lookout, and state the stand-on vessel's escalation duties." }
+          ]
+        },
+        {
+          "id": "colregs_rule_19d", "rule_ref": "Rules 19 & 35", "title": "Restricted visibility",
+          "summary": "Proceed at safe speed with engines ready. No vessel is stand-on under Rule 19; do not turn to port for a target forward of the beam.",
+          "asa_note": "Rule 19 principles are materially the same under US Inland Rules; use the applicable local sound-signal requirements.",
+          "visual_spec": { "type": "colregs_encounter", "params": { "scenario": "rule_19_fog_port_bow", "own_heading": 0, "target_bearing": 315, "recommended_turn": "starboard" } },
+          "questions": [
+            { "id": "rule19-1", "prompt": "A steady radar target is at 315° relative in dense fog. What action is prohibited for a target forward of the beam?", "expected_keywords": ["rule 19", "port", "starboard", "safe speed"], "forbidden_keywords": ["turn to port", "port alteration"], "correct_explanation": "Rule 19(d) prohibits an alteration to port for a vessel detected forward of the beam, except when overtaking. Take clear avoiding action and proceed at safe speed.", "deep_remediation": "Mark the target relative to the beam, then apply Rule 19(d) before choosing an alteration." },
+            { "id": "rule19-2", "prompt": "You hear a three-blast fog signal forward of the beam. What immediate control measure is required?", "expected_keywords": ["rule 35", "sail", "minimum steerageway", "safe speed"], "forbidden_keywords": ["increase speed", "ignore signal"], "correct_explanation": "The signal may indicate a sailing vessel, NUC, RAM, CBD, fishing vessel, or towing vessel. Reduce to the minimum speed at which the vessel can be kept on course and navigate with extreme caution.", "deep_remediation": "Identify the signal pattern, list plausible vessel classes, then state the speed and lookout response." }
+          ]
+        },
+        {
+          "id": "colregs_lights_shapes", "rule_ref": "Rules 20–31 & Annex IV", "title": "Lights, shapes & distress signals",
+          "summary": "Identify vessel status from prescribed lights and day shapes, including sailing, fishing, NUC, RAM, pilot, towing, and distress signals.",
+          "asa_note": "Light characteristics are international; check US Inland variations and local chart notes.",
+          "visual_spec": { "type": "colregs_lights", "params": { "top_light": "red", "mid_light": "green", "bottom_light": "none", "sidelight": "red", "label": "Sailing vessel underway, port aspect" } },
+          "questions": [
+            { "id": "lights-1", "prompt": "At night you see red over green above a red sidelight. What vessel and aspect is indicated?", "expected_keywords": ["sailing vessel", "port aspect", "underway"], "forbidden_keywords": ["motor-sailing", "power-driven"], "correct_explanation": "Red over green is an optional sailing-vessel light combination; the red sidelight indicates the port aspect.", "deep_remediation": "Read masthead lights separately from sidelights, then infer vessel class and aspect." },
+            { "id": "lights-2", "prompt": "A tug and tow exceed 200 m. Which additional day shape and masthead light pattern should be considered?", "expected_keywords": ["black diamond", "three masthead lights", "tow"], "forbidden_keywords": ["one masthead light only"], "correct_explanation": "A tow exceeding 200 m calls for three vertical masthead lights on the towing vessel and a black diamond shape; the tow also displays the prescribed diamond shape.", "deep_remediation": "Determine whether the tow exceeds 200 m, then review the towing lights and day-shape requirements." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mod_2_chartwork",
+      "title": "Chartwork & Terrestrial Navigation",
+      "pass_threshold": 0.80,
+      "topics": [
+        {
+          "id": "nav_compass_leeway", "rule_ref": "RYA chartwork", "title": "True, magnetic, compass & leeway",
+          "summary": "Apply variation and deviation with direction-aware signs, then allow for leeway by steering into the wind from the intended water track.",
+          "asa_note": "Use the chart's stated variation and annual change; US chart conventions may differ by chart edition.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "compass-1", "prompt": "Variation is 4°15′ W in 2020 and increases 10′ W annually. What is it in 2026?", "expected_keywords": ["5°15", "west"], "forbidden_keywords": ["3°15"], "correct_explanation": "Six years add 60 minutes west, giving 5°15′ W.", "deep_remediation": "Count elapsed years and apply the stated annual change in the same direction." },
+            { "id": "compass-2", "prompt": "Convert 270°T to compass with 5°W variation and 3°E deviation, ignoring leeway for this conversion step.", "expected_keywords": ["266", "compass"], "forbidden_keywords": ["280"], "correct_explanation": "Apply the chart's variation and vessel deviation with their stated directions: 270°T converts to 266°C.", "deep_remediation": "Write each conversion as a separate signed step and check the add-west/subtract-east mnemonic." }
+          ]
+        },
+        {
+          "id": "nav_dr_ep_fixes", "rule_ref": "RYA chartwork", "title": "DR, EP, fixes & course to steer",
+          "summary": "Plot the water track from a known fix to DR, add the tidal vector to reach EP, and use the ground vector for COG and SOG.",
+          "asa_note": "Check chart datum and local chart conventions; COG is not the vessel's heading in a cross-current.",
+          "visual_spec": { "type": "chart_vector_sandbox", "params": { "water_heading": 90, "water_speed": 6, "tide_set": 180, "tide_rate": 2, "hours": 1 } },
+          "questions": [
+            { "id": "vectors-1", "prompt": "Steer 090°T at 6 kn for one hour with a 2 kn tide setting 180°T. Describe DR, EP, and SOG.", "expected_keywords": ["6 nm east", "south", "6.32"], "forbidden_keywords": ["6 knots exactly"], "correct_explanation": "The water track is 6 NM east; the tidal vector is 2 NM south. The ground speed is the vector magnitude, about 6.32 kn.", "deep_remediation": "Draw the water and tide vectors head-to-tail, then calculate the resultant magnitude." },
+            { "id": "vectors-2", "prompt": "A three-point fix forms a cocked hat beside a hazard. Which corner should guide your safe navigation?", "expected_keywords": ["closest to danger", "danger-side"], "forbidden_keywords": ["furthest from danger"], "correct_explanation": "Navigate from the corner closest to danger until the uncertainty is resolved.", "deep_remediation": "Treat the cocked hat as an uncertainty area and choose the conservative corner." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mod_3_tides",
+      "title": "Tidal Heights & Tidal Streams",
+      "pass_threshold": 0.80,
+      "topics": [
+        {
+          "id": "tides_heights_clearance", "rule_ref": "Tidal calculations", "title": "Tidal heights & under-keel clearance",
+          "summary": "Use the Rule of Twelfths as an estimate and calculate clearance from height of tide, charted depth or drying height, draft, and UKC.",
+          "asa_note": "UK Admiralty charts use LAT; US NOAA charts commonly use MLLW as chart datum.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "tides-height-1", "prompt": "A tide rises from 1.0 m to 7.0 m. Estimate height two hours after low water using Rule of Twelfths.", "expected_keywords": ["2.5", "metres"], "forbidden_keywords": ["3.0"], "correct_explanation": "The first two hours add 1/12 and 2/12 of the 6 m range: 1.0 + 0.5 + 1.0 = 2.5 m.", "deep_remediation": "Calculate the range, divide it into twelfths, and sum the first two increments." },
+            { "id": "tides-height-2", "prompt": "A rock dries 1.8 m, draft is 2.0 m, and required UKC is 1.0 m. What height of tide is needed?", "expected_keywords": ["4.8", "height of tide"], "forbidden_keywords": ["2.8"], "correct_explanation": "Required height of tide is drying height plus draft plus UKC: 1.8 + 2.0 + 1.0 = 4.8 m.", "deep_remediation": "Add the drying height, vessel draft, and chosen under-keel clearance." }
+          ]
+        },
+        {
+          "id": "tides_diamonds_cts", "rule_ref": "Tidal streams & CTS", "title": "Tidal diamonds & impossible CTS",
+          "summary": "Interpolate charted tidal rates and assess whether boat speed can overcome a cross-current on the required ground track.",
+          "asa_note": "Use the chart's tidal atlas or local stream data and account for the chart's reference port.",
+          "visual_spec": { "type": "chart_vector_sandbox", "params": { "water_heading": 90, "water_speed": 3, "tide_set": 0, "tide_rate": 4, "hours": 1 } },
+          "questions": [
+            { "id": "diamonds-1", "prompt": "Interpolate mid-range stream rate between 1.4 kn neaps and 2.8 kn springs.", "expected_keywords": ["2.1", "knots"], "forbidden_keywords": ["1.4"], "correct_explanation": "The midpoint between 1.4 and 2.8 kn is 2.1 kn.", "deep_remediation": "Find the daily range position, then interpolate linearly between the stated rates." },
+            { "id": "diamonds-2", "prompt": "Your boat makes 3 kn and a perpendicular cross-tide runs at 4 kn. Can you hold a straight track directly across?", "expected_keywords": ["cannot", "tide exceeds", "tidal gate"], "forbidden_keywords": ["hold course directly"], "correct_explanation": "The stream exceeds the boat speed, so a direct straight-line crossing is not achievable; wait for a tidal gate or change the passage plan.", "deep_remediation": "Compare the cross-current with boat speed and select a safe alternative rather than promising an impossible CTS." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mod_4_meteorology",
+      "title": "Marine Meteorology",
+      "pass_threshold": 0.80,
+      "topics": [
+        {
+          "id": "met_depressions_fronts", "rule_ref": "Synoptic meteorology", "title": "Depressions & frontal passages",
+          "summary": "Use Buys Ballot's Law in the Northern Hemisphere and recognize typical cloud, pressure, rain, and wind changes at fronts.",
+          "asa_note": "Buys Ballot's Law reverses in the Southern Hemisphere.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "weather-1", "prompt": "In the Northern Hemisphere, with your back to a south-westerly wind, where is the low pressure?", "expected_keywords": ["left", "northwest"], "forbidden_keywords": ["right"], "correct_explanation": "Buys Ballot's Law places the low to your left in the Northern Hemisphere, approximately northwest in this situation.", "deep_remediation": "Place your back to the wind and apply the hemisphere-specific left/right rule." },
+            { "id": "weather-2", "prompt": "What pressure and wind clues may precede a warm front?", "expected_keywords": ["falling pressure", "backing wind", "cloud sequence"], "forbidden_keywords": ["rapid pressure rise only"], "correct_explanation": "Pressure commonly falls; layered cloud thickens and wind often backs before the frontal passage.", "deep_remediation": "Combine pressure tendency, cloud sequence, precipitation, and wind shift rather than relying on one clue." }
+          ]
+        },
+        {
+          "id": "met_local_fog", "rule_ref": "Local weather", "title": "Sea breezes & fog formation",
+          "summary": "Distinguish daytime sea breeze circulation from advection fog over cold water and radiation fog over land.",
+          "asa_note": "Local sea-breeze strength depends on the gradient wind and coastline orientation.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "fog-1", "prompt": "Why may advection fog over cold coastal water persist through midday?", "expected_keywords": ["warm moist air", "cold sea", "wind shift"], "forbidden_keywords": ["sun burns it off"], "correct_explanation": "Advection fog forms when warm moist air moves over colder water and usually persists until the air mass or wind changes.", "deep_remediation": "Identify the air-water temperature relationship and distinguish advection from radiation fog." },
+            { "id": "fog-2", "prompt": "What local wind is likely on a sunny afternoon when the gradient wind is light?", "expected_keywords": ["sea breeze", "onshore", "land heats"], "forbidden_keywords": ["offshore all afternoon"], "correct_explanation": "Land heats faster than sea, drawing cooler marine air onshore as a sea breeze, often strongest during the afternoon.", "deep_remediation": "Compare land and sea heating, then describe the resulting pressure circulation." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mod_5_passage_planning",
+      "title": "Passage Planning & Pilotage",
+      "pass_threshold": 0.80,
+      "topics": [
+        {
+          "id": "plan_solas_pilotage", "rule_ref": "SOLAS V Regulation 34", "title": "Passage planning & pilotage",
+          "summary": "Appraise, plan, execute, and monitor the passage; identify hazards, tidal gates, escape routes, and pilotage transits.",
+          "asa_note": "ASA 106/108 practice commonly emphasizes a written float plan and leg-by-leg waypoint notes.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "plan-1", "prompt": "A rear transit mark moves left of the front mark. Which side of the transit are you on and how should you correct?", "expected_keywords": ["starboard", "steer left", "port"], "forbidden_keywords": ["steer right"], "correct_explanation": "The rear mark moving left indicates the vessel is to starboard of the transit; steer to port to regain it.", "deep_remediation": "Read the relative motion of the rear mark, identify which side of the line you occupy, then correct toward the transit." },
+            { "id": "plan-2", "prompt": "How does a not-more-than clearing bearing help when passing an unlit hazard?", "expected_keywords": ["bearing limit", "remain clear", "hazard"], "forbidden_keywords": ["cross the limit"], "correct_explanation": "Maintain the bearing within the stated NMT limit so the vessel remains on the safe side of the hazard.", "deep_remediation": "Plot or identify the danger side, state the bearing limit, and monitor it continuously." }
+          ]
+        },
+        {
+          "id": "plan_tidal_gates_bars", "rule_ref": "Passage planning", "title": "Tidal gates, bars & night entry",
+          "summary": "Assess wind-against-tide sea state, depth, visibility, and abort options before committing to a bar or restricted entrance.",
+          "asa_note": "Use local notices, pilot books, and forecast sources for the specific port and jurisdiction.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "bar-1", "prompt": "At night, an onshore Force 6 opposes a spring ebb across a shallow bar. What is the conservative decision?", "expected_keywords": ["stand off", "deep water", "slack water", "flood"], "forbidden_keywords": ["press on at speed", "enter immediately"], "correct_explanation": "Wind against a strong ebb can create steep breaking seas over the bar. Stand off in safe water and wait for a suitable tide or conditions.", "deep_remediation": "Name the wave hazard, preserve deep-water options, and choose a safer tide window." },
+            { "id": "bar-2", "prompt": "Name two passage-plan elements that help you avoid committing to an unsafe tidal gate.", "expected_keywords": ["abort", "escape route", "tidal gate", "bolt hole"], "forbidden_keywords": ["no alternative"], "correct_explanation": "Plan a latest safe time, escape route, and bolt hole before the gate so the crew can abort with margin.", "deep_remediation": "List decision points and safe alternatives before entering the constrained area." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mod_6_seamanship_emergencies",
+      "title": "Heavy Weather, Boat Handling & Emergencies",
+      "pass_threshold": 0.85,
+      "topics": [
+        {
+          "id": "emerg_mob_heavy_weather", "rule_ref": "MOB & heavy weather", "title": "MOB recovery & storm tactics",
+          "summary": "Raise the alarm, mark the casualty, assign a spotter, maneuver deliberately, and recover on the leeward side when safe.",
+          "asa_note": "Adapt recovery procedure to vessel, crew, sea state, and local rescue guidance.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "mob-1", "prompt": "Why is a leeward-side pickup generally preferred for a person overboard?", "expected_keywords": ["hull", "drift", "casualty", "lee"], "forbidden_keywords": ["hull drifts onto casualty"], "correct_explanation": "A controlled leeward recovery reduces the risk of the hull being blown or drifted onto the casualty; adapt to conditions and vessel handling.", "deep_remediation": "Describe relative wind and drift at the final approach, then identify the safer side." },
+            { "id": "mob-2", "prompt": "Name the sail and helm configuration commonly used to heave-to in a rising gale.", "expected_keywords": ["backed headsail", "sheeted main", "helm", "leeward"], "forbidden_keywords": ["full sail", "helm unattended"], "correct_explanation": "A backed headsail, eased or sheeted main, and helm set to maintain the balance can hold the vessel hove-to; practice on the specific boat.", "deep_remediation": "Explain how the backed headsail and main balance the boat and keep a watch on lee shore and sea room." }
+          ]
+        },
+        {
+          "id": "emerg_anchoring_distress", "rule_ref": "Anchoring, towing & distress", "title": "Anchoring scope, towing & Mayday",
+          "summary": "Calculate scope from bow roller to seabed at high water, rig a chafe-protected tow, and distinguish distress from urgency calls.",
+          "asa_note": "Follow local VHF channel and Coast Guard procedures; use the vessel's current radio license and MMSI details.",
+          "visual_spec": { "type": "none", "params": {} },
+          "questions": [
+            { "id": "distress-1", "prompt": "Chart depth is 8 m, high-water rise is 4 m, and bow roller is 1.5 m above sea level. What is a 4:1 all-chain scope?", "expected_keywords": ["54", "metres", "4:1"], "forbidden_keywords": ["32"], "correct_explanation": "Total height is 8 + 4 + 1.5 = 13.5 m; at 4:1 the scope is 54 m, before any additional storm allowance.", "deep_remediation": "Add chart depth, high-water rise, and bow-roller height, then multiply by the selected scope ratio." },
+            { "id": "distress-2", "prompt": "When do you use MAYDAY rather than PAN-PAN, and what information belongs in the call?", "expected_keywords": ["grave and imminent", "position", "nature", "assistance", "souls"], "forbidden_keywords": ["routine request"], "correct_explanation": "MAYDAY is for grave and imminent danger. State vessel identity, position, nature of distress, assistance required, and people on board, then repeat key information as needed.", "deep_remediation": "Classify the urgency, then rehearse the call information in a clear, ordered sequence." }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "watchwatcher-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/watchwatcher-api/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist",
+    "start": "func start",
+    "migrate": "node-pg-migrate up --migrations-dir migrations",
+    "migrate:rollback": "node-pg-migrate down --migrations-dir migrations",
+    "prestart": "npm run clean && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ tests/"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.2",
+    "@azure/identity": "^4.6.0",
+    "@azure/storage-blob": "^12.27.0",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "pino": "^9.6.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "node-pg-migrate": "^9.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

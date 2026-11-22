@@ -1,0 +1,13 @@
+{
+  "name": "WatchWatcher Yachtmaster Study",
+  "short_name": "WatchWatcher",
+  "description": "Offline-first RYA and ASA Yachtmaster study and visual training.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f3f7f4",
+  "theme_color": "#146c67",
+  "icons": [
+    { "src": "assets/icons/watchwatcher.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

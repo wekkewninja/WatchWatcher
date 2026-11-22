@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "WatchWatcher API (debug)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "outFiles": ["${workspaceFolder}/services/watchwatcher-api/dist/**/*.js"],
+      "preLaunchTask": "watchwatcher-api: func host start"
+    },
+    {
+      "name": "WatchWatcher Web (debug)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4200/",
+      "webRoot": "${workspaceFolder}/services/watchwatcher-web",
+      "preLaunchTask": "watchwatcher-web: dev"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug All Services",
+      "configurations": [
+        "WatchWatcher API (debug)",
+        "WatchWatcher Web (debug)"
+      ],
+      "preLaunchTask": "debug-all-services: start",
+      "stopAll": true
+    }
+  ]
+}

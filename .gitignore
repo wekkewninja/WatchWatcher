@@ -9,6 +9,10 @@ build/
 # Node.js
 node_modules/
 npm-debug.log*
+dist/
+coverage/
+.angular/
+services/**/dist/
 
 # Local secrets and environment configuration
 .env
