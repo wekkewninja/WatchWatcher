@@ -69,6 +69,7 @@ describe('COLREGs catalog', () => {
     expect(rule1?.officialText?.international).toHaveLength(5);
     expect(rule1?.officialText?.international[0]).toContain('high seas');
     expect(rule1?.officialText?.inland?.[0]).toContain('inland waters of the United States');
+    expect(rule1?.officialText?.inland?.[3]).toContain('may be established');
     expect(rule1?.officialText?.sourceUpdatedOn).toBe('2026-11-16');
     expect(rule41?.id).toBe('rule-41');
     expect(annex1?.id).toBe('annex-i');
