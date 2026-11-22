@@ -9,7 +9,7 @@ import type {
   StoredProgress,
 } from '@watchwatcher/shared/types';
 import type { ColregsExercise, ColregsRule, EvaluationResult, StudyModule, StudySnapshot } from '../app/domain-types';
-import type { AccountInput, ApiClient, Credentials } from './types';
+import type { AccountInput, ApiClient, Credentials, GoogleAuthChallenge, GoogleSignInInput, GoogleSignInResult } from './types';
 
 type JsonObject = Record<string, unknown>;
 
@@ -50,7 +50,7 @@ let curriculumPromise: Promise<CurriculumAsset> | null = null;
 let colregsPromise: Promise<ColregsAsset> | null = null;
 
 class ApiError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(readonly status: number, message: string, readonly code?: string, readonly details?: unknown) {
     super(message);
   }
 }
@@ -187,7 +187,10 @@ async function request(path: string, init: RequestInit = {}, authenticated = fal
       sessionAccountId = null;
       cloudRevision = null;
     }
-    throw new ApiError(response.status, errorMessage(body, response.statusText));
+    const errorBody = typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? (body as Partial<ErrorResponse>).error
+      : undefined;
+    throw new ApiError(response.status, errorMessage(body, response.statusText), errorBody?.code, errorBody?.details);
   }
   return body;
 }
@@ -302,6 +305,32 @@ export const liveClient: ApiClient = {
   },
   async login(credentials: Credentials) {
     return acceptSession(await request('/auth/login', sessionRequest(credentials)));
+  },
+  async getGoogleClientId(): Promise<string> {
+    const result = object(await request('/auth/google/config'), 'Google sign-in configuration');
+    return text(result['clientId'], 'Google client ID');
+  },
+  async createGoogleChallenge(): Promise<GoogleAuthChallenge> {
+    const challenge = object(await request('/auth/google/challenge', { method: 'POST' }), 'Google sign-in challenge');
+    return {
+      challengeId: text(challenge['challengeId'], 'Google challenge ID'),
+      nonce: text(challenge['nonce'], 'Google challenge nonce'),
+      expiresAt: text(challenge['expiresAt'], 'Google challenge expiry'),
+    };
+  },
+  async googleSignIn(input: GoogleSignInInput): Promise<GoogleSignInResult> {
+    try {
+      const user = acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }));
+      return { kind: 'authenticated', user };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409 && error.code === 'CONFLICT') {
+        const details = typeof error.details === 'object' && error.details !== null ? error.details as Record<string, unknown> : {};
+        if (details['reason'] === 'GOOGLE_ACCOUNT_LINK_REQUIRED') {
+          return { kind: 'link-required' };
+        }
+      }
+      throw error;
+    }
   },
   async logout() {
     sessionToken = null;

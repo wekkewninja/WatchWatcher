@@ -59,4 +59,27 @@ describe('live API client sessions', () => {
     await expect(syncing).rejects.toThrow('Account changed while an API request was in progress.');
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('accepts a verified Google session and returns an explicit account-link state', async () => {
+    const accountId = '4a3eea85-72f6-4f90-a045-cf8fc2d83ff4';
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        accountId,
+        session: 'google-session-token',
+        user: { id: accountId, name: 'Google Student', email: 'google@example.test' },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: {
+          code: 'CONFLICT',
+          message: 'A password account already uses this verified Google email.',
+          details: { reason: 'GOOGLE_ACCOUNT_LINK_REQUIRED' },
+        },
+      }), { status: 409 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(liveClient.googleSignIn({ credential: 'signed-google-id-token', challengeId: '4a3eea85-72f6-4f90-a045-cf8fc2d83ff4' }))
+      .resolves.toEqual({ kind: 'authenticated', user: { id: accountId, name: 'Google Student', email: 'google@example.test' } });
+    await expect(liveClient.googleSignIn({ credential: 'another-signed-token', challengeId: '5b4ffb96-83a7-4f01-b156-d0fd3e94a885' }))
+      .resolves.toEqual({ kind: 'link-required' });
+  });
 });

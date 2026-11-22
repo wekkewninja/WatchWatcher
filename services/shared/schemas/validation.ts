@@ -8,6 +8,14 @@ export const registerSchema = z.object({
   password: z.string().min(10).max(128),
 }).strict();
 export const sessionSchema = credentialsSchema;
+export const googleSignInSchema = z.object({
+  challengeId: z.string().uuid(),
+  credential: z.string().min(100).max(10000),
+  linkExisting: z.object({
+    confirmed: z.literal(true),
+    password: z.string().min(8).max(128),
+  }).strict().optional(),
+}).strict();
 
 export const progressSnapshotSchema = z.object({
   topicMastery: z.record(z.string().min(1).max(120), z.number().min(0).max(100)),

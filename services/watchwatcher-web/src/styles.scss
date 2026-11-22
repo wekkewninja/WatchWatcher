@@ -307,6 +307,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .auth-card form { display: flex; flex-direction: column; gap: 6px; }.auth-card form button { min-height: 44px; }
 .auth-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; color: var(--muted); font-size: 11px; }.auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
 .auth-card > a { width: 100%; }
+.google-link-confirmation { display: grid; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.google-link-confirmation > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.google-link-confirmation form { display: flex; flex-direction: column; gap: 8px; }
+.google-link-consent { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.google-link-consent input { flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--brand-primary); }
 .learning-page { max-width: 1080px; }
 .learning-heading { align-items: flex-start; }
 .learning-topic-list, .learning-questions { display: flex; flex-direction: column; gap: 10px; }

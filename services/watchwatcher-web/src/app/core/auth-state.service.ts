@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { api } from '../../api';
+import type { GoogleSignInInput, GoogleSignInResult } from '../../api/types';
 import type { Learner } from '../domain-types';
 
 @Injectable({ providedIn: 'root' })
@@ -25,6 +26,15 @@ export class AuthStateService {
     const user = await api.createAccount({ name, email, password });
     localStorage.removeItem('watchwatcher-signed-out');
     this.user.set(user);
+  }
+
+  async loginWithGoogle(input: GoogleSignInInput): Promise<GoogleSignInResult> {
+    const result = await api.googleSignIn(input);
+    if (result.kind === 'authenticated') {
+      localStorage.removeItem('watchwatcher-signed-out');
+      this.user.set(result.user);
+    }
+    return result;
   }
 
   async logout(): Promise<void> {

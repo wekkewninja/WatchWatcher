@@ -16,10 +16,29 @@ export interface Credentials {
   password: string;
 }
 
+export interface GoogleAuthChallenge {
+  challengeId: string;
+  nonce: string;
+  expiresAt: string;
+}
+
+export interface GoogleSignInInput {
+  credential: string;
+  challengeId: string;
+  linkExisting?: { confirmed: true; password: string };
+}
+
+export type GoogleSignInResult =
+  | { kind: 'authenticated'; user: PublicAccount }
+  | { kind: 'link-required' };
+
 export interface ApiClient {
   getCurrentUser(): Promise<PublicAccount>;
   createAccount(input: AccountInput): Promise<PublicAccount>;
   login(credentials: Credentials): Promise<PublicAccount>;
+  getGoogleClientId(): Promise<string>;
+  createGoogleChallenge(): Promise<GoogleAuthChallenge>;
+  googleSignIn(input: GoogleSignInInput): Promise<GoogleSignInResult>;
   logout(): Promise<void>;
   getStudySnapshot(): Promise<StudySnapshot>;
   getModules(): Promise<StudyModule[]>;

@@ -8,6 +8,7 @@ const config: AppConfig = {
   jwtSecret: undefined,
   jwtIssuer: 'watchwatcher-api',
   jwtAudience: 'watchwatcher-app',
+  googleClientId: undefined,
   geminiApiKey: undefined,
   azureStorageAccount: undefined,
   azuriteConnectionString: undefined,

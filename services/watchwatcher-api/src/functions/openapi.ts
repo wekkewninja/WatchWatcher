@@ -42,6 +42,33 @@ const specification = {
           { type: 'object', required: ['accountId', 'revision', 'syncedAt'], properties: { accountId: { type: 'string', format: 'uuid' }, revision: { type: 'integer', minimum: 0 }, syncedAt: { type: 'string', format: 'date-time', nullable: true } } },
         ],
       },
+      GoogleAuthConfig: {
+        type: 'object',
+        required: ['clientId'],
+        properties: { clientId: { type: 'string', description: 'Public Google OAuth web client ID.' } },
+      },
+      GoogleAuthChallenge: {
+        type: 'object',
+        required: ['challengeId', 'nonce', 'expiresAt'],
+        properties: {
+          challengeId: { type: 'string', format: 'uuid' },
+          nonce: { type: 'string' },
+          expiresAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      GoogleSignInRequest: {
+        type: 'object',
+        required: ['credential', 'challengeId'],
+        properties: {
+          credential: { type: 'string', minLength: 100, maxLength: 10000 },
+          challengeId: { type: 'string', format: 'uuid' },
+          linkExisting: {
+            type: 'object',
+            required: ['confirmed', 'password'],
+            properties: { confirmed: { type: 'boolean', enum: [true] }, password: { type: 'string', minLength: 8, maxLength: 128 } },
+          },
+        },
+      },
     },
   },
   paths: {
@@ -49,6 +76,36 @@ const specification = {
     '/auth/register': { post: { summary: 'Create an account', responses: { '201': { description: 'Account created' }, '409': { description: 'Duplicate account' } } } },
     '/auth/login': { post: { summary: 'Create a signed-in session', responses: { '200': { description: 'Session created' }, '401': { description: 'Invalid credentials' } } } },
     '/auth/session': { post: { summary: 'Start a session for account features', responses: { '200': { description: 'Session created' } } } },
+    '/auth/google/config': {
+      get: {
+        summary: 'Read public Google sign-in configuration',
+        responses: {
+          '200': { description: 'Google client configuration', content: { 'application/json': { schema: { $ref: '#/components/schemas/GoogleAuthConfig' } } } },
+          '503': { description: 'Google sign-in is not configured' },
+        },
+      },
+    },
+    '/auth/google/challenge': {
+      post: {
+        summary: 'Create a short-lived, single-use OIDC nonce challenge',
+        responses: {
+          '201': { description: 'Google sign-in challenge', content: { 'application/json': { schema: { $ref: '#/components/schemas/GoogleAuthChallenge' } } } },
+          '503': { description: 'Google sign-in is not configured' },
+        },
+      },
+    },
+    '/auth/google': {
+      post: {
+        summary: 'Verify a Google ID token and create a WatchWatcher session or request explicit account linking',
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/GoogleSignInRequest' } } } },
+        responses: {
+          '200': { description: 'WatchWatcher session created' },
+          '401': { description: 'Invalid Google identity, challenge, or existing-account password' },
+          '409': { description: 'Explicit account linking required or identity conflict' },
+          '503': { description: 'Google sign-in is not configured' },
+        },
+      },
+    },
     '/auth/me': { get: { summary: 'Read the signed-in user', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Current user' } } } },
     '/progress': {
       get: { summary: 'Read progress for the authenticated account', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Account progress snapshot', content: { 'application/json': { schema: { $ref: '#/components/schemas/StoredProgress' } } } } } },
