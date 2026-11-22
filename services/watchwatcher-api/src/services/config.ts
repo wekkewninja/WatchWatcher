@@ -4,6 +4,7 @@ export interface AppConfig {
   jwtSecret: string | undefined;
   jwtIssuer: string;
   jwtAudience: string;
+  googleClientId: string | undefined;
   geminiApiKey: string | undefined;
   azureStorageAccount: string | undefined;
   azuriteConnectionString: string | undefined;
@@ -22,6 +23,7 @@ export function loadConfig(): AppConfig {
     jwtSecret: process.env.JWT_SECRET,
     jwtIssuer: process.env.JWT_ISSUER ?? 'watchwatcher-api',
     jwtAudience: process.env.JWT_AUDIENCE ?? 'watchwatcher-app',
+    googleClientId: process.env.GOOGLE_CLIENT_ID,
     geminiApiKey: process.env.GEMINI_API_KEY,
     azureStorageAccount: process.env.AZURE_STORAGE_ACCOUNT,
     azuriteConnectionString: process.env.AZURITE_CONNECTION_STRING,

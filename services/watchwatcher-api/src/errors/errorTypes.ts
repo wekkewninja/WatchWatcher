@@ -4,7 +4,7 @@ export class ValidationError extends AppError {
   constructor(message: string, details?: unknown) { super(422, 'VALIDATION_ERROR', message, details); }
 }
 export class ConflictError extends AppError {
-  constructor(message: string) { super(409, 'CONFLICT', message); }
+  constructor(message: string, details?: unknown) { super(409, 'CONFLICT', message, details); }
 }
 export class UnauthorizedError extends AppError {
   constructor(message = 'Authentication required') { super(401, 'UNAUTHORIZED', message); }

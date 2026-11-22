@@ -14,7 +14,7 @@ Study and deterministic grading work locally. IndexedDB progress is namespaced b
 ## Local setup
 
 1. Install Node.js, npm, Azure Functions Core Tools v4, and Docker Compose.
-2. Copy `.env.example` to `.env`. The development-only PostgreSQL defaults match `local.settings.json`; if you change the password, update its `DATABASE_URL` too. `local.settings.json` is ignored by Git.
+2. Copy `.env.example` to `.env`. The development-only PostgreSQL defaults match `local.settings.json`; if you change the password, update its `DATABASE_URL` too. For Google sign-in, also set `GOOGLE_CLIENT_ID` under `Values` in the ignored `services/watchwatcher-api/local.settings.json`; Functions does not load the root `.env` file automatically.
 3. Install workspace packages: `npm install`.
 4. Start local PostgreSQL and Azurite: `docker compose up -d postgres azurite`.
 5. Apply the API schema migration: `docker compose run --rm db-migrate`.
@@ -31,6 +31,12 @@ The API is served at `http://localhost:7071/api`; the Angular development server
 - `npm run build`
 
 The development-only state selector exposes data, loading, empty, and error states. Production disables it and the Angular service worker caches the app shell and bundled learning content.
+
+## Google Sign-in
+
+Google sign-in uses Google Identity Services to obtain an ID token. The web app requests the public client ID from `GET /api/auth/google/config` and a short-lived, single-use nonce from `POST /api/auth/google/challenge`, then posts the credential to `POST /api/auth/google`. The API verifies signature, issuer, audience, expiry, nonce, and verified-email claim before issuing the normal WatchWatcher session. Google tokens are not stored. Configure the Google OAuth web client ID as the API setting `GOOGLE_CLIENT_ID` (in local development, add it to `Values` in the ignored `services/watchwatcher-api/local.settings.json`; in Azure, use an application setting). Restrict the OAuth client to the app's authorized origins.
+
+If the verified Google email already belongs to a password account, the API returns a link-required state. The UI asks the user to explicitly confirm linking and re-enter that account's password; it then resubmits the still-live credential/challenge. The API verifies both credentials before associating the Google subject; matching email alone never merges accounts. Google-only accounts have no password hash until a password credential is explicitly added.
 
 ## COLREGs Study Content
 

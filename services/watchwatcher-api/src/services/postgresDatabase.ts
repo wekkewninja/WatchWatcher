@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import type { PublicAccount, ProgressSnapshot, StoredProgress } from '../../../shared/types/entities';
 import type { AppConfig } from './config';
-import { ConflictError, ServiceUnavailableError } from '../errors/errorTypes';
+import { ConflictError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
 import type { IDatabaseService } from './interfaces/IDatabaseService';
 
 export class PostgresDatabaseService implements IDatabaseService {
@@ -22,13 +23,95 @@ export class PostgresDatabaseService implements IDatabaseService {
     }
   }
 
-  async findAccountByEmail(email: string): Promise<{ id: string; name: string; email: string; passwordHash: string } | null> {
-    const result = await this.getPool().query<{ id: string; name: string; email: string; password_hash: string }>(
+  async findAccountByEmail(email: string): Promise<{ id: string; name: string; email: string; passwordHash: string | null } | null> {
+    const result = await this.getPool().query<{ id: string; name: string; email: string; password_hash: string | null }>(
       'SELECT id, name, email, password_hash FROM users WHERE email = $1 LIMIT 1',
       [email.toLowerCase()],
     );
     const account = result.rows[0];
     return account ? { id: account.id, name: account.name, email: account.email, passwordHash: account.password_hash } : null;
+  }
+
+  async findAccountByGoogleSubject(subject: string): Promise<PublicAccount | null> {
+    const result = await this.getPool().query<{ id: string; name: string; email: string }>(
+      `SELECT users.id, users.name, users.email
+       FROM users JOIN account_identities ON account_identities.account_id = users.id
+       WHERE account_identities.provider = 'google' AND account_identities.provider_subject = $1
+       LIMIT 1`,
+      [subject],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async createGoogleChallenge(input: { id: string; nonceHash: string; expiresAt: Date }): Promise<void> {
+    await this.getPool().query('DELETE FROM google_auth_challenges WHERE expires_at <= NOW()');
+    await this.getPool().query(
+      'INSERT INTO google_auth_challenges (id, nonce_hash, expires_at) VALUES ($1, $2, $3)',
+      [input.id, input.nonceHash, input.expiresAt],
+    );
+  }
+
+  async isGoogleChallengeValid(id: string, nonceHash: string): Promise<boolean> {
+    const result = await this.getPool().query<{ id: string }>(
+      'SELECT id FROM google_auth_challenges WHERE id = $1 AND nonce_hash = $2 AND expires_at > NOW()',
+      [id, nonceHash],
+    );
+    return result.rowCount === 1;
+  }
+
+  async consumeGoogleChallenge(id: string, nonceHash: string): Promise<boolean> {
+    const result = await this.getPool().query<{ id: string }>(
+      'DELETE FROM google_auth_challenges WHERE id = $1 AND nonce_hash = $2 AND expires_at > NOW() RETURNING id',
+      [id, nonceHash],
+    );
+    return result.rowCount === 1;
+  }
+
+  async createGoogleAccount(input: { id: string; name: string; email: string; subject: string; challengeId: string; nonceHash: string }): Promise<PublicAccount> {
+    const client = await this.getPool().connect();
+    try {
+      await client.query('BEGIN');
+      const challenge = await client.query<{ id: string }>(
+        'DELETE FROM google_auth_challenges WHERE id = $1 AND nonce_hash = $2 AND expires_at > NOW() RETURNING id',
+        [input.challengeId, input.nonceHash],
+      );
+      if (challenge.rowCount !== 1) throw new UnauthorizedError('Google sign-in challenge is invalid, expired, or already used.');
+      const user = await client.query<{ id: string; name: string; email: string }>(
+        'INSERT INTO users (id, name, email, password_hash) VALUES ($1, $2, $3, NULL) RETURNING id, name, email',
+        [input.id, input.name, input.email.toLowerCase()],
+      );
+      await client.query(
+        "INSERT INTO account_identities (id, account_id, provider, provider_subject, provider_email) VALUES ($1, $2, 'google', $3, $4)",
+        [randomUUID(), input.id, input.subject, input.email.toLowerCase()],
+      );
+      await client.query('COMMIT');
+      return user.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (isUniqueViolation(error)) throw new ConflictError('This email or Google identity is already linked to an account.');
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async linkGoogleIdentity(input: { accountId: string; email: string; subject: string; challengeId: string; nonceHash: string }): Promise<void> {
+    const client = await this.getPool().connect();
+    try {
+      await client.query('BEGIN');
+      const challenge = await client.query<{ id: string }>(
+        'DELETE FROM google_auth_challenges WHERE id = $1 AND nonce_hash = $2 AND expires_at > NOW() RETURNING id',
+        [input.challengeId, input.nonceHash],
+      );
+      if (challenge.rowCount !== 1) throw new UnauthorizedError('Google sign-in challenge is invalid, expired, or already used.');
+      await client.query(
+        "INSERT INTO account_identities (id, account_id, provider, provider_subject, provider_email) VALUES ($1, $2, 'google', $3, $4)",
+        [randomUUID(), input.accountId, input.subject, input.email.toLowerCase()],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (isUniqueViolation(error)) throw new ConflictError('This Google identity is already linked to an account.');
+      throw error;
+    } finally { client.release(); }
   }
 
   async getProgress(accountId: string): Promise<StoredProgress | null> {

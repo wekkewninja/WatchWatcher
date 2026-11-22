@@ -1,14 +1,19 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import type { PublicAccount } from '../../../shared/types/entities';
 import type { AppConfig } from './config';
 import { ConflictError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
 import type { IDatabaseService } from './interfaces/IDatabaseService';
-import type { AuthSession, IAuthService } from './interfaces/IAuthService';
+import type { AuthSession, GoogleAuthChallenge, GoogleAccountLinkRequest, GoogleSignInResult, IAuthService } from './interfaces/IAuthService';
+import { GoogleIdentityVerifier, type VerifiedGoogleIdentity } from './googleIdentityVerifier';
 
 export class AuthService implements IAuthService {
-  constructor(private readonly database: IDatabaseService, private readonly config: AppConfig) {}
+  constructor(
+    private readonly database: IDatabaseService,
+    private readonly config: AppConfig,
+    private readonly googleVerifier: Pick<GoogleIdentityVerifier, 'verify'> = new GoogleIdentityVerifier(),
+  ) {}
 
   async register(input: { name: string; email: string; password: string }): Promise<AuthSession> {
     const passwordHash = await bcrypt.hash(input.password, 12);
@@ -23,8 +28,75 @@ export class AuthService implements IAuthService {
 
   async login(input: { email: string; password: string }): Promise<AuthSession> {
     const account = await this.database.findAccountByEmail(input.email);
-    if (!account || !(await bcrypt.compare(input.password, account.passwordHash))) throw new UnauthorizedError('Email or password is incorrect.');
+    if (!account?.passwordHash || !(await bcrypt.compare(input.password, account.passwordHash))) throw new UnauthorizedError('Email or password is incorrect.');
     return this.createSession({ id: account.id, name: account.name, email: account.email });
+  }
+
+  getGoogleClientId(): string {
+    if (!this.config.googleClientId) throw new ServiceUnavailableError('Google sign-in is not configured.');
+    return this.config.googleClientId;
+  }
+
+  async createGoogleChallenge(): Promise<GoogleAuthChallenge> {
+    this.getGoogleClientId();
+    const challengeId = randomUUID();
+    const nonce = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.database.createGoogleChallenge({ id: challengeId, nonceHash: hashNonce(nonce), expiresAt });
+    return { challengeId, nonce, expiresAt: expiresAt.toISOString() };
+  }
+
+  async loginWithGoogle(input: {
+    credential: string;
+    challengeId: string;
+    linkExisting?: GoogleAccountLinkRequest;
+  }): Promise<GoogleSignInResult> {
+    const audience = this.getGoogleClientId();
+
+    let identity: VerifiedGoogleIdentity;
+    try { identity = await this.googleVerifier.verify(input.credential, audience); }
+    catch { throw new UnauthorizedError('Google sign-in credential is invalid or expired.'); }
+
+    const nonceHash = hashNonce(identity.nonce);
+    if (!(await this.database.isGoogleChallengeValid(input.challengeId, nonceHash))) {
+      throw new UnauthorizedError('Google sign-in challenge is invalid, expired, or already used.');
+    }
+
+    const linkedAccount = await this.database.findAccountByGoogleSubject(identity.subject);
+    if (linkedAccount) {
+      if (!(await this.database.consumeGoogleChallenge(input.challengeId, nonceHash))) {
+        throw new UnauthorizedError('Google sign-in challenge is invalid, expired, or already used.');
+      }
+      return { kind: 'session', session: this.createSession(linkedAccount) };
+    }
+
+    const existingAccount = await this.database.findAccountByEmail(identity.email);
+    if (existingAccount) {
+      if (!input.linkExisting) {
+        return { kind: 'link-required' };
+      }
+      if (!existingAccount.passwordHash || !(await bcrypt.compare(input.linkExisting.password, existingAccount.passwordHash))) {
+        throw new UnauthorizedError('The existing account password is incorrect.');
+      }
+      await this.database.linkGoogleIdentity({
+        accountId: existingAccount.id,
+        email: identity.email,
+        subject: identity.subject,
+        challengeId: input.challengeId,
+        nonceHash,
+      });
+      return { kind: 'session', session: this.createSession(existingAccount) };
+    }
+
+    const account = await this.database.createGoogleAccount({
+      id: randomUUID(),
+      name: identity.name,
+      email: identity.email,
+      subject: identity.subject,
+      challengeId: input.challengeId,
+      nonceHash,
+    });
+    return { kind: 'session', session: this.createSession(account) };
   }
 
   async authenticate(authorization: string | undefined): Promise<PublicAccount> {
@@ -56,4 +128,8 @@ export class AuthService implements IAuthService {
     if (!secret || secret.length < 32) throw new ServiceUnavailableError('Session signing is not configured.');
     return secret;
   }
+}
+
+function hashNonce(nonce: string): string {
+  return createHash('sha256').update(nonce).digest('hex');
 }
