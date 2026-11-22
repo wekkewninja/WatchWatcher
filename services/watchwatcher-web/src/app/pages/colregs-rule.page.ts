@@ -40,7 +40,7 @@ import { ColregsExerciseCardComponent } from '../shared/colregs-exercise-card.co
         @if (entry.asaInlandNote) { <mat-card class="rule-detail-card"><mat-card-header><mat-icon mat-card-avatar>compare_arrows</mat-icon><mat-card-title>RYA / ASA and Inland note</mat-card-title></mat-card-header><mat-card-content><p>{{ entry.asaInlandNote }}</p></mat-card-content></mat-card> }
         <ww-colregs-exercise-card [rule]="entry" />
         <div class="rule-detail-meta"><span><mat-icon>label</mat-icon> Search terms</span><div class="keyword-row">@for (keyword of entry.keywords; track keyword) { <span>{{ keyword }}</span> }</div></div>
-        <mat-card class="authority-note"><mat-icon>info</mat-icon><p>This offline entry is a study summary, not the complete authoritative legal wording. Consult the current official COLREGs publication for the full rule text.</p></mat-card>
+        <mat-card class="authority-note"><mat-icon>info</mat-icon><p>Compare the International and U.S. Inland wording where both apply. Check the linked U.S. Coast Guard source for updates and any local requirements before relying on a rule operationally.</p></mat-card>
       }
     </main>
   `,
