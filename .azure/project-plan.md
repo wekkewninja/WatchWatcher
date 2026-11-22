@@ -174,7 +174,7 @@ WatchWatcher/
     ├── public/
     │   ├── assets/
     │   │   ├── syllabus/curriculum_seed.json
-    │   │   └── reference/colregs_72.json
+    │   │   └── reference/colregs_catalog.json
     │   └── manifest.webmanifest
     └── src/
         ├── main.ts

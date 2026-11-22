@@ -274,6 +274,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .rule-detail-card mat-card-subtitle { color: var(--muted); }
 .rule-detail-card mat-card-content p { margin: 0; color: var(--ink); }
 .rule-detail-text { font-size: 16px; line-height: 1.7; }
+.rule-key-points { display: grid; gap: 8px; margin: 0; padding-inline-start: 20px; color: var(--ink); line-height: 1.55; }
+.exercise-prompt { margin: 0 0 14px !important; font-size: 15px; line-height: 1.6; }
+.exercise-options { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; border: 0; }
+.exercise-options legend { margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.exercise-options label { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); color: var(--ink); cursor: pointer; line-height: 1.45; }
+.exercise-options label.selected { border-color: var(--brand-primary); background: color-mix(in srgb, var(--brand-primary) 7%, var(--surface-raised)); }
+.exercise-options input { flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--brand-primary); }
+.rule-practice-card button { min-height: 40px; }
+.exercise-feedback { margin-top: 14px; padding: 12px; border-inline-start: 3px solid var(--brand-accent); background: color-mix(in srgb, var(--brand-accent) 8%, var(--surface-raised)); }
+.exercise-feedback.correct { border-color: var(--success); background: color-mix(in srgb, var(--success) 8%, var(--surface-raised)); }
+.exercise-feedback strong { color: var(--ink); }
+.exercise-feedback p { margin: 7px 0 0 !important; color: var(--muted) !important; line-height: 1.5; }
 .memory-card { border-inline-start: 3px solid var(--brand-accent); }
 .rule-detail-meta { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
 .rule-detail-meta > span { display: inline-flex; align-items: center; gap: 5px; padding-top: 3px; }

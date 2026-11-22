@@ -14,7 +14,7 @@ import type { ColregsRule } from '../domain-types';
   imports: [FormsModule, MatButtonModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, RouterLink],
   template: `
     <main class="page-content">
-      <div class="page-heading"><div><span class="eyebrow">Offline reference · 72 entries</span><h1>COLREGs reference</h1><p>Search rules, safety duties, lights, shapes, and sound signals.</p></div><span class="offline-chip"><mat-icon>offline_bolt</mat-icon> Available offline</span></div>
+      <div class="page-heading"><div><span class="eyebrow">Offline reference · 41 rules · 4 annexes</span><h1>COLREGs reference</h1><p>Search rules, vessel status, lights, shapes, sound signals, and distress procedures.</p></div><span class="offline-chip"><mat-icon>offline_bolt</mat-icon> Available offline</span></div>
       <form class="search-row" (ngSubmit)="search()"><mat-form-field appearance="outline"><mat-label>Search rules or terms</mat-label><input matInput name="query" [(ngModel)]="query" placeholder="Try: fog, overtaking, whistle"><mat-icon matPrefix>search</mat-icon></mat-form-field><button mat-flat-button type="submit"><mat-icon>search</mat-icon> Search</button></form>
       @if (loading()) { <mat-card class="state-card"><div class="skeleton-bar"></div><div class="skeleton-bar short"></div><p>Searching bundled reference</p></mat-card> }
       @else if (error()) { <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>Reference lookup failed</strong><p>{{ error() }}</p></div><button mat-stroked-button (click)="search()">Try again</button></mat-card> }

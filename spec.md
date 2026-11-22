@@ -21,8 +21,8 @@
    - **Module 6:** Heavy Weather, Boat Handling & Emergencies (Storm tactics, MOB recovery leeward pickup, anchoring/mooring in tidal streams, towing, Mayday/DSC/EPIRB distress).
 2. **RYA vs. ASA Dual-Mode Toggle:**
    - Global UI switch (`RYA` | `ASA`) that adapts terminology, buoyage notes (IALA Region A vs. B), chart datum references (LAT vs. MLLW), and USCG Inland vs. International COLREGs notes.
-3. **Offline 72 COLREGs Quick-Reference Lookup:**
-   - Bundle `assets/reference/colregs_72.json` containing searchable rules (Rule 1 to Rule 41 + Annexes) with instant offline keyword filtering so the user can inspect any rule mid-study without network access.
+3. **Offline COLREGs Reference and Practice:**
+  - Bundle `assets/reference/colregs_catalog.json` containing all 41 numbered provisions and Annexes I–IV, with searchable original study points and one scenario exercise per entry for offline practice.
 
 ### B. Threshold-Gated Examiner & Adaptive Remediation Loop
 1. **Dual-Mode Grading Engine (`ExaminerAiService`):**
@@ -87,13 +87,13 @@ WatchWatcher/
 │   ├── syllabus/
 │   │   └── curriculum_seed.json            # Full 6-module RYA/ASA syllabus, thresholds & remediation
 │   └── reference/
-│       └── colregs_72.json                 # Searchable offline 72 COLREGs rules & memory hooks
+│       └── colregs_catalog.json            # Searchable offline Rules 1–41, Annexes I–IV, and exercises
 ├── lib/
 │   ├── main.dart                           # App bootstrap, Material 3 nautical theme, responsive navigation
 │   ├── models/
 │   │   └── training_models.dart            # SyllabusStandard, ModuleNode, TopicNode, QuestionItem, VisualSpec, ExaminerEvaluation
 │   ├── services/
-│   │   ├── syllabus_repository.dart        # Loads & caches curriculum_seed.json and colregs_72.json
+│   │   ├── syllabus_repository.dart        # Loads & caches curriculum_seed.json and colregs_catalog.json
 │   │   ├── student_memory_service.dart     # Local persistence of mastery scores, weak spots & drill queue
 │   │   ├── auth_service.dart                # Optional sign-in and secure session handling
 │   │   ├── progress_sync_service.dart       # Revision-aware optional cloud progress sync
@@ -256,7 +256,9 @@ Every module, topic, visual aid configuration, and threshold-gated question must
 
 ---
 
-## 4.2 Complete JSON Schema & Reference Seed: `assets/reference/colregs_72.json`
+## 4.2 Legacy COLREGs Reference Examples
+
+The examples below are historical design notes, not the current data contract. The canonical offline catalog schema is defined after them.
 
 ```json
 {
@@ -411,6 +413,42 @@ Every module, topic, visual aid configuration, and threshold-gated question must
 ```
 
 ---
+
+### Current Catalog Contract
+
+`assets/reference/colregs_catalog.json` contains 41 numbered COLREGs provisions and Annexes I–IV. Every entry has two or more original key points and one multiple-choice exercise. Rule summaries and scenarios are study aids; use the current official publication for authoritative wording.
+
+```json
+{
+  "version": 1,
+  "source": "https://www.navcen.uscg.gov/navigation-rules-amalgamated",
+  "rules": [
+    {
+      "rule_number": "Rule 1",
+      "title": "Application",
+      "category": "General",
+      "summary": "Original concise study summary.",
+      "memory_hook": "Short recall cue.",
+      "asa_inland_note": "International/Inland comparison or applicability note.",
+      "key_points": ["Important application point.", "A relevant exception or limit."],
+      "exercise": {
+        "prompt": "A short vessel-operation question.",
+        "options": [
+          { "id": "a", "text": "First answer choice." },
+          { "id": "b", "text": "Second answer choice." },
+          { "id": "c", "text": "Third answer choice." },
+          { "id": "d", "text": "Fourth answer choice." }
+        ],
+        "answer": "b",
+        "explanation": "Why the correct choice applies.",
+        "remediation": "What to review after an incorrect choice."
+      }
+    }
+  ]
+}
+```
+
+`answer` must match one option ID. Automated web tests verify all Rules 1–41, Annexes I–IV, unique entry/option IDs, and a valid explanation and remediation for every exercise.
 
 ## 4.3 Gemini Structured Output Schema & Prompt Contract (`ExaminerAiService`)
 
@@ -680,7 +718,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/syllabus/curriculum_seed.json
-    - assets/reference/colregs_72.json
+    - assets/reference/colregs_catalog.json
 
   ### 5.3 File-by-File Generation Order & Contracts
 
@@ -689,7 +727,7 @@ flutter:
   **Phase A — Offline Data Assets**
 
   - `assets/syllabus/curriculum_seed.json`: all six modules, at least 12 topics and 24 questions, with thresholds, expected and forbidden keywords, explanations, remediation, ASA notes, and visual specs.
-  - `assets/reference/colregs_72.json`: searchable coverage of Rules 1–41 and Annexes I–IV, with category, summary, memory hook, and ASA Inland note.
+  - `assets/reference/colregs_catalog.json`: searchable coverage of Rules 1–41 and Annexes I–IV, with original summaries, key points, International/Inland notes, and one linked scenario exercise per entry.
 
   **Phase B — Flutter Domain Models and Services**
 

@@ -7,7 +7,7 @@ import type {
   SessionResponse,
   StoredProgress,
 } from '@watchwatcher/shared/types';
-import type { ColregsRule, EvaluationResult, StudyModule, StudySnapshot } from '../app/domain-types';
+import type { ColregsExercise, ColregsRule, EvaluationResult, StudyModule, StudySnapshot } from '../app/domain-types';
 import type { AccountInput, ApiClient, Credentials } from './types';
 
 type JsonObject = Record<string, unknown>;
@@ -37,6 +37,8 @@ interface ColregsAsset {
     summary: string;
     memory_hook: string;
     asa_inland_note: string;
+    key_points: string[];
+    exercise: ColregsExercise;
   }>;
 }
 
@@ -204,6 +206,15 @@ function parseColregs(value: unknown): ColregsAsset {
   return {
     rules: array(root['rules'], 'COLREGs rules').map((ruleValue) => {
       const rule = object(ruleValue, 'COLREGs rule');
+      const exercise = object(rule['exercise'], 'COLREGs exercise');
+      const options = array(exercise['options'], 'COLREGs exercise options').map((optionValue) => {
+        const option = object(optionValue, 'COLREGs exercise option');
+        return { id: text(option['id'], 'COLREGs option id'), text: text(option['text'], 'COLREGs option text') };
+      });
+      const answer = text(exercise['answer'], 'COLREGs exercise answer');
+      if (options.length < 2 || !options.some((option) => option.id === answer)) {
+        throw new Error('Bundled COLREGs exercise has an invalid answer option.');
+      }
       return {
         rule_number: text(rule['rule_number'], 'rule number'),
         title: text(rule['title'], 'rule title'),
@@ -211,6 +222,14 @@ function parseColregs(value: unknown): ColregsAsset {
         summary: text(rule['summary'], 'rule summary'),
         memory_hook: text(rule['memory_hook'], 'memory hook'),
         asa_inland_note: text(rule['asa_inland_note'], 'ASA Inland note'),
+        key_points: array(rule['key_points'], 'COLREGs key points').map((point) => text(point, 'COLREGs key point')),
+        exercise: {
+          prompt: text(exercise['prompt'], 'COLREGs exercise prompt'),
+          options,
+          answer,
+          explanation: text(exercise['explanation'], 'COLREGs exercise explanation'),
+          remediation: text(exercise['remediation'], 'COLREGs exercise remediation'),
+        },
       };
     }),
   };
@@ -222,7 +241,7 @@ function curriculum(): Promise<CurriculumAsset> {
 }
 
 function colregsReference(): Promise<ColregsAsset> {
-  colregsPromise ??= loadAsset('assets/reference/colregs_72.json', parseColregs);
+  colregsPromise ??= loadAsset('assets/reference/colregs_catalog.json', parseColregs);
   return colregsPromise;
 }
 
@@ -289,15 +308,17 @@ export const liveClient: ApiClient = {
   async searchColregs(query: string): Promise<ColregsRule[]> {
     const content = await colregsReference();
     const normalized = query.trim().toLowerCase();
-    return content.rules.map((rule, index) => ({
-      id: `rule-${index + 1}`,
+    return content.rules.map((rule) => ({
+      id: rule.rule_number.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
       ruleNumber: rule.rule_number,
       title: rule.title,
       category: rule.category,
       summary: rule.summary,
       memoryHook: rule.memory_hook,
       asaInlandNote: rule.asa_inland_note,
-      keywords: `${rule.title} ${rule.memory_hook} ${rule.asa_inland_note}`.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
+      keyPoints: rule.key_points,
+      exercise: rule.exercise,
+      keywords: `${rule.title} ${rule.summary} ${rule.memory_hook} ${rule.asa_inland_note} ${rule.key_points.join(' ')} ${rule.exercise.prompt} ${rule.exercise.options.map((option) => option.text).join(' ')}`.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
     })).filter((rule) => !normalized || `${rule.ruleNumber} ${rule.title} ${rule.summary} ${rule.keywords.join(' ')}`.toLowerCase().includes(normalized));
   },
   async getProgress(): Promise<ProgressSnapshot> {

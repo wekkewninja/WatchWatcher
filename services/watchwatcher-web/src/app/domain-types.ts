@@ -41,7 +41,22 @@ export interface ColregsRule {
   summary: string;
   memoryHook?: string;
   asaInlandNote?: string;
+  keyPoints: string[];
+  exercise: ColregsExercise;
   keywords: string[];
+}
+
+export interface ColregsExerciseOption {
+  id: string;
+  text: string;
+}
+
+export interface ColregsExercise {
+  prompt: string;
+  options: ColregsExerciseOption[];
+  answer: string;
+  explanation: string;
+  remediation: string;
 }
 
 export interface StudySnapshot {
