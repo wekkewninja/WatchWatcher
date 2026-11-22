@@ -256,7 +256,9 @@ Every module, topic, visual aid configuration, and threshold-gated question must
 
 ---
 
-## 4.2 Complete JSON Schema & Reference Seed: `assets/reference/colregs_catalog.json`
+## 4.2 Legacy COLREGs Reference Examples
+
+The examples below are historical design notes, not the current data contract. The canonical offline catalog schema is defined after them.
 
 ```json
 {
@@ -411,6 +413,42 @@ Every module, topic, visual aid configuration, and threshold-gated question must
 ```
 
 ---
+
+### Current Catalog Contract
+
+`assets/reference/colregs_catalog.json` contains 41 numbered COLREGs provisions and Annexes I–IV. Every entry has two or more original key points and one multiple-choice exercise. Rule summaries and scenarios are study aids; use the current official publication for authoritative wording.
+
+```json
+{
+  "version": 1,
+  "source": "https://www.navcen.uscg.gov/navigation-rules-amalgamated",
+  "rules": [
+    {
+      "rule_number": "Rule 1",
+      "title": "Application",
+      "category": "General",
+      "summary": "Original concise study summary.",
+      "memory_hook": "Short recall cue.",
+      "asa_inland_note": "International/Inland comparison or applicability note.",
+      "key_points": ["Important application point.", "A relevant exception or limit."],
+      "exercise": {
+        "prompt": "A short vessel-operation question.",
+        "options": [
+          { "id": "a", "text": "First answer choice." },
+          { "id": "b", "text": "Second answer choice." },
+          { "id": "c", "text": "Third answer choice." },
+          { "id": "d", "text": "Fourth answer choice." }
+        ],
+        "answer": "b",
+        "explanation": "Why the correct choice applies.",
+        "remediation": "What to review after an incorrect choice."
+      }
+    }
+  ]
+}
+```
+
+`answer` must match one option ID. Automated web tests verify all Rules 1–41, Annexes I–IV, unique entry/option IDs, and a valid explanation and remediation for every exercise.
 
 ## 4.3 Gemini Structured Output Schema & Prompt Contract (`ExaminerAiService`)
 
