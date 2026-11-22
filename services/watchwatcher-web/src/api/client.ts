@@ -49,6 +49,7 @@ interface ColregsOfficialTextAsset {
   checked_on: string;
   rules: Array<{
     rule_number: string;
+    source_fragment: string;
     international: string[];
     inland?: string[];
   }>;
@@ -282,6 +283,7 @@ function parseColregsOfficialText(value: unknown): ColregsOfficialTextAsset {
     const inland = inlandValue === undefined ? undefined : paragraphs(inlandValue, 'Inland rule paragraphs');
     return {
       rule_number: text(rule['rule_number'], 'official COLREGs rule number'),
+      source_fragment: text(rule['source_fragment'], 'official COLREGs source fragment'),
       international,
       inland,
     };
@@ -415,7 +417,7 @@ export const liveClient: ApiClient = {
     return content.rules.map((rule) => {
       const ruleText = officialTextByRule.get(rule.rule_number);
       const officialTextForRule = ruleText ? {
-        sourceUrl: `${officialText.source_url}#rule${rule.rule_number.match(/\d+/)?.[0]}`,
+        sourceUrl: `${officialText.source_url}#${encodeURIComponent(ruleText.source_fragment)}`,
         sourceUpdatedOn: officialText.source_updated_on,
         checkedOn: officialText.checked_on,
         international: ruleText.international,

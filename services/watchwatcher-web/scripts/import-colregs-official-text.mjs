@@ -129,6 +129,11 @@ function paragraphsFrom(fragment, mode) {
 }
 
 function extractRule({ number, element }, nextElement) {
+  const anchors = Array.from(content.querySelectorAll('a[id]'));
+  const sourceAnchor = anchors.find((anchor) => anchor.id.toLowerCase() === `rule${number}`)
+    ?? ([32, 33].includes(number) ? anchors.find((anchor) => anchor.id.toLowerCase() === 'rule32 $ 33') : undefined);
+  if (!sourceAnchor) throw new Error(`Could not find the official source anchor for Rule ${number}.`);
+
   const range = document.createRange();
   range.setStartAfter(element);
   if (nextElement) range.setEndBefore(nextElement);
@@ -141,6 +146,7 @@ function extractRule({ number, element }, nextElement) {
   const fragment = range.cloneContents();
   const rule = {
     rule_number: `Rule ${number}`,
+    source_fragment: sourceAnchor.id,
     international: paragraphsFrom(fragment, 'international'),
   };
   const inland = paragraphsFrom(fragment, 'inland');
