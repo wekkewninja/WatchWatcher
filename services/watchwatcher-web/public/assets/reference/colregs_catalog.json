@@ -1,0 +1,366 @@
+{
+  "version": 1,
+  "source": "https://www.navcen.uscg.gov/navigation-rules-amalgamated",
+  "rules": [
+    {
+      "rule_number": "Rule 1", "title": "Application", "category": "General",
+      "summary": "The Rules apply on the high seas and connected navigable waters used by seagoing vessels. Competent authorities may make local special rules for specified waters.",
+      "memory_hook": "First identify which rule set and local supplements govern these waters.",
+      "asa_inland_note": "In U.S. waters, navigational demarcation lines determine where International or Inland Rules apply; check local regulations too.",
+      "key_points": ["Confirm the waterway and applicable rule set before applying an encounter rule.", "Local special rules can supplement the general Rules.", "The Rules do not displace special rules for qualifying lights, shapes, or signals."],
+      "exercise": {"prompt": "You are entering a harbor with published local vessel-traffic requirements. What should you do before relying only on the ordinary steering rules?", "options": [{"id":"a","text":"Ignore the harbor notices once outside the breakwater."},{"id":"b","text":"Check the applicable International or Inland Rules and the harbor's valid local special rules."},{"id":"c","text":"Apply the rules used on your previous passage, regardless of location."},{"id":"d","text":"Ask the other vessel to choose which rules apply."}], "answer":"b", "explanation":"Rule 1 establishes the geographic scope and recognizes valid local special rules. The applicable regime depends on the waterway, not habit.", "remediation":"Start with location and jurisdiction, then check for published local requirements."}
+    },
+    {
+      "rule_number": "Rule 2", "title": "Responsibility", "category": "General",
+      "summary": "Compliance does not excuse neglect of ordinary seamanship or precautions required by the circumstances. A departure may be necessary to avoid immediate danger, but it does not remove responsibility.",
+      "memory_hook": "Follow the Rules and keep exercising sound seamanship.",
+      "asa_inland_note": "The same responsibility principle applies under Inland Rules; local circumstances and vessel limitations still matter.",
+      "key_points": ["Consider collision dangers, navigation hazards, and the limitations of vessels involved.", "Do not treat a rule as permission to ignore prudent precautions.", "Any departure must be tied to immediate danger, not convenience."],
+      "exercise": {"prompt": "A vessel appears technically to have the stand-on role, but a shoal makes holding course unsafe. Which response best reflects Rule 2?", "options": [{"id":"a","text":"Hold course regardless; stand-on status removes all discretion."},{"id":"b","text":"Take the safest prudent action, considering the shoal and the other vessel, and continue to avoid collision."},{"id":"c","text":"Stop observing the other vessel because the Rules assign responsibility."},{"id":"d","text":"Assume the other vessel is solely liable and make no adjustment."}], "answer":"b", "explanation":"Rule 2 requires good seamanship and attention to special circumstances while the collision-avoidance rules remain in force.", "remediation":"Reassess the complete situation; a role assignment never makes a hazard disappear."}
+    },
+    {
+      "rule_number": "Rule 3", "title": "General definitions", "category": "General",
+      "summary": "Defines vessel and propulsion classes, fishing, NUC, RAM, CBD, underway, in sight, restricted visibility, and other terms used by the Rules.",
+      "memory_hook": "Classify the vessel and conditions before choosing a rule.",
+      "asa_inland_note": "Some definitions have Inland-specific wording or additions; use the definitions for the regime in force.",
+      "key_points": ["A sailing vessel is under sail only when fitted propulsion machinery is not being used.", "A vessel is underway when it is not anchored, made fast ashore, or aground.", "Vessels are in sight only when they can be observed visually from one another."],
+      "exercise": {"prompt": "A yacht is sailing with its engine propelling it. For the Rules, how is it classified?", "options": [{"id":"a","text":"As a sailing vessel because its sails are set."},{"id":"b","text":"As a power-driven vessel because its machinery is being used for propulsion."},{"id":"c","text":"As a vessel not under command."},{"id":"d","text":"As a vessel engaged in fishing."}], "answer":"b", "explanation":"Rule 3 defines a sailing vessel by whether its propelling machinery is being used, not by whether sails are hoisted.", "remediation":"Separate sail configuration from propulsion status; check whether the engine is being used."}
+    },
+    {
+      "rule_number": "Rule 4", "title": "Application of steering rules", "category": "Steering and Sailing",
+      "summary": "Rules 4–10 govern conduct in any condition of visibility.",
+      "memory_hook": "Rules 4–10 apply whether or not vessels are in sight.",
+      "asa_inland_note": "Apply the Inland versions where Inland Rules govern.",
+      "key_points": ["Look-out, safe speed, collision-risk assessment, and avoiding action are not limited to clear weather.", "Rules 11–18 have a separate in-sight scope.", "Restricted visibility has additional conduct rules in Rule 19."],
+      "exercise": {"prompt": "In dense fog, which rule group still supplies the basic lookout, safe-speed, risk, and avoiding-action duties?", "options": [{"id":"a","text":"Rules 4–10."},{"id":"b","text":"Rules 11–18 only."},{"id":"c","text":"Rules 20–31 only."},{"id":"d","text":"No steering rules apply until vessels are visible."}], "answer":"a", "explanation":"Rules 4–10 apply in any condition of visibility. Rule 19 adds specific requirements for restricted visibility.", "remediation":"Separate the all-visibility duties in Rules 4–10 from the in-sight encounter rules."}
+    },
+    {
+      "rule_number": "Rule 5", "title": "Look-out", "category": "Steering and Sailing",
+      "summary": "Maintain a proper lookout at all times by sight, hearing, and every appropriate available means so the situation and collision risk can be fully appraised.",
+      "memory_hook": "Look, listen, use suitable equipment, and keep appraising.",
+      "asa_inland_note": "AIS and radar can support lookout but do not replace visual and audible watchkeeping or judgment.",
+      "key_points": ["The lookout must appraise both the situation and collision risk.", "Use means appropriate to current conditions and equipment.", "A display is not a substitute for keeping an effective watch."],
+      "exercise": {"prompt": "Your AIS display shows no targets, but visibility is patchy and you are entering a busy channel. What is the proper response?", "options": [{"id":"a","text":"Rely on AIS because it is a complete picture of traffic."},{"id":"b","text":"Maintain visual and listening watch, use available suitable means, and continue appraising the situation."},{"id":"c","text":"Look out only when the alarm sounds."},{"id":"d","text":"Turn off other sensors to avoid conflicting information."}], "answer":"b", "explanation":"Rule 5 calls for sight, hearing, and all appropriate available means; no single electronic source replaces a proper lookout.", "remediation":"Combine observation methods and keep interpreting what they show."}
+    },
+    {
+      "rule_number": "Rule 6", "title": "Safe speed", "category": "Steering and Sailing",
+      "summary": "Proceed at a speed that permits effective collision-avoidance action and stopping within a distance appropriate to the prevailing conditions.",
+      "memory_hook": "Choose speed for visibility, traffic, handling, and sea room.",
+      "asa_inland_note": "Include local water depth, current, traffic, and vessel maneuverability in the assessment.",
+      "key_points": ["Consider visibility, traffic density, maneuverability, background lights, weather, hazards, and draft.", "Radar users must consider equipment limits, clutter, range scale, and target characteristics.", "Safe speed is continuously reassessed, not a fixed number."],
+      "exercise": {"prompt": "Visibility falls, traffic thickens, and your stopping distance is longer than expected. Which action best fits Rule 6?", "options": [{"id":"a","text":"Keep the same speed because it was safe earlier."},{"id":"b","text":"Reduce speed as needed so effective avoiding action and stopping remain possible."},{"id":"c","text":"Increase speed to spend less time in the area."},{"id":"d","text":"Use the speed limit as the only test of safety."}], "answer":"b", "explanation":"Rule 6 requires speed to be adapted to prevailing conditions and the vessel's ability to maneuver and stop.", "remediation":"Reassess the full Rule 6 factors whenever conditions change."}
+    },
+    {
+      "rule_number": "Rule 7", "title": "Risk of collision", "category": "Steering and Sailing",
+      "summary": "Use all appropriate means to determine collision risk. If in doubt, treat risk as existing; do not rely on scanty information or a single observation.",
+      "memory_hook": "If doubt remains, assume risk and keep tracking.",
+      "asa_inland_note": "Use systematic radar observation or plotting when radar is fitted and operational.",
+      "key_points": ["A nearly constant compass bearing as range decreases is a strong collision-risk indicator.", "Risk may exist even with bearing change, especially near a large vessel or tow.", "Use repeated observations; scanty data can mislead."],
+      "exercise": {"prompt": "A target's compass bearing stays nearly constant while its range decreases. What is the prudent conclusion?", "options": [{"id":"a","text":"There is no risk because the target has not crossed your bow yet."},{"id":"b","text":"Assume collision risk exists and continue systematic assessment."},{"id":"c","text":"Ignore it unless AIS reports a CPA."},{"id":"d","text":"A steady bearing proves the target is anchored."}], "answer":"b", "explanation":"A nearly constant bearing with decreasing range is a key risk indicator; Rule 7 says doubt is resolved by assuming risk exists.", "remediation":"Track bearing and range over time and avoid conclusions from one or two weak observations."}
+    },
+    {
+      "rule_number": "Rule 8", "title": "Action to avoid collision", "category": "Steering and Sailing",
+      "summary": "Take positive action in ample time, make course or speed changes readily apparent, pass at a safe distance, and verify that the action is working.",
+      "memory_hook": "Act early, clearly, and check the result.",
+      "asa_inland_note": "Required whistle intent signals can differ between International and Inland encounters.",
+      "key_points": ["Avoid a succession of small indecisive alterations.", "A course alteration alone can be effective when sea room permits and it avoids new close quarters.", "Reduce speed or stop if needed to gain time or avoid collision."],
+      "exercise": {"prompt": "A target presents collision risk and there is ample sea room. Which plan best reflects Rule 8?", "options": [{"id":"a","text":"Make several small course changes and stop monitoring the target."},{"id":"b","text":"Make a positive, timely alteration large enough to be apparent, then verify safe passing."},{"id":"c","text":"Wait until the vessels are close before acting."},{"id":"d","text":"Assume any alteration is safe without checking other traffic."}], "answer":"b", "explanation":"Rule 8 emphasizes positive action in ample time, a readily apparent maneuver, a safe passing distance, and checking effectiveness.", "remediation":"State the action, its intended passing result, and how you will verify it."}
+    },
+    {
+      "rule_number": "Rule 9", "title": "Narrow channels", "category": "Steering and Sailing",
+      "summary": "Keep near the starboard outer limit when safe and practicable. Small vessels, sailing vessels, and fishing vessels must not impede vessels that can safely navigate only within the channel.",
+      "memory_hook": "Keep to starboard; do not impede channel-dependent traffic.",
+      "asa_inland_note": "Some Inland waters add specific downbound-vessel passing rules; verify local applicability.",
+      "key_points": ["A crossing must not impede a vessel that can safely navigate only in the channel.", "Avoid anchoring in a narrow channel when circumstances permit.", "Use particular alertness near bends and obscured sections."],
+      "exercise": {"prompt": "A small sailing vessel is about to cross a narrow channel ahead of a deep-draft vessel confined to it. What is the best action?", "options": [{"id":"a","text":"Cross immediately because sailing vessels always stand on."},{"id":"b","text":"Avoid impeding the channel-dependent vessel and cross only when it is safe."},{"id":"c","text":"Anchor in the channel to wait."},{"id":"d","text":"Require the deep-draft vessel to leave the channel."}], "answer":"b", "explanation":"Rule 9 requires small and sailing vessels not to impede a vessel that can safely navigate only within the narrow channel.", "remediation":"Distinguish a duty not to impede from an ordinary crossing rule, and allow the confined vessel safe passage."}
+    },
+    {
+      "rule_number": "Rule 10", "title": "Traffic separation schemes", "category": "Steering and Sailing",
+      "summary": "Use the appropriate lane in the general direction of traffic flow, cross a lane on a heading as nearly as practicable at right angles, and avoid impeding lane-following vessels.",
+      "memory_hook": "Use the lane correctly; cross nearly at right angles on heading.",
+      "asa_inland_note": "Check the charted scheme, designated inshore traffic zone, and local exceptions.",
+      "key_points": ["Keep clear of separation lines and zones so far as practicable.", "Join or leave at lane terminations where practicable; otherwise do so at a small angle to flow.", "Small vessels, sailing vessels, and fishing vessels have limited permissions and must not impede lane-following traffic."],
+      "exercise": {"prompt": "You must cross a traffic lane. How should the vessel's crossing direction be selected?", "options": [{"id":"a","text":"On a heading as nearly as practicable at right angles to the lane's general traffic flow."},{"id":"b","text":"Parallel to the lane for the shortest distance."},{"id":"c","text":"At any angle if the GPS course over ground is 90 degrees."},{"id":"d","text":"Through the separation zone whenever convenient."}], "answer":"a", "explanation":"Rule 10 specifies crossing on a heading as nearly as practicable at right angles to the general direction of traffic flow.", "remediation":"Use heading relative to lane direction; do not substitute a COG-only test."}
+    },
+    {
+      "rule_number": "Rule 11", "title": "Application of sailing rules", "category": "Steering and Sailing",
+      "summary": "Rules 11–18 apply to vessels in sight of one another.",
+      "memory_hook": "Visual sighting activates the in-sight encounter rules.",
+      "asa_inland_note": "Use the applicable regime's definition of being in sight; radar-only detection is not visual sighting.",
+      "key_points": ["The trigger is visual observation from one vessel to the other.", "Rules 4–10 still apply in all visibility conditions.", "A radar target in fog is handled under Rule 19, not as an in-sight encounter."],
+      "exercise": {"prompt": "In fog, radar detects a target that cannot be seen. Which specific conduct rule applies to this restricted-visibility situation?", "options": [{"id":"a","text":"Rule 12 only."},{"id":"b","text":"Rule 19, together with the all-visibility rules."},{"id":"c","text":"Rules 11–18, because radar counts as visual sight."},{"id":"d","text":"No steering rules apply."}], "answer":"b", "explanation":"Rule 11 limits Rules 11–18 to vessels in sight. Rule 19 addresses vessels not in sight in or near restricted visibility.", "remediation":"Ask whether the vessel is visually observed before applying Rules 11–18."}
+    },
+    {
+      "rule_number": "Rule 12", "title": "Sailing vessels", "category": "Steering and Sailing",
+      "summary": "When sailing vessels approach with collision risk, port tack gives way to starboard tack; on the same tack, windward gives way to leeward. If a port-tack vessel cannot determine the other's tack, it keeps clear.",
+      "memory_hook": "Different tacks: port gives way. Same tack: windward gives way.",
+      "asa_inland_note": "The core tack and windward hierarchy is materially the same; use the relevant definitions.",
+      "key_points": ["Determine which side receives the wind before assigning responsibility.", "When on the same tack, the windward vessel keeps clear.", "A port-tack vessel uncertain of the other vessel's tack keeps clear."],
+      "exercise": {"prompt": "Two sailing vessels approach with risk of collision. You have the wind on port; the other vessel's tack is uncertain. What should you do?", "options": [{"id":"a","text":"Keep clear because Rule 12 resolves uncertainty against the port-tack vessel."},{"id":"b","text":"Stand on because the other vessel must prove its tack."},{"id":"c","text":"Apply the power-driven crossing rule automatically."},{"id":"d","text":"Alter to port without checking the other vessel."}], "answer":"a", "explanation":"Under Rule 12, when the port-tack vessel cannot determine the other vessel's tack with certainty, it keeps out of the way.", "remediation":"Identify tack first; when uncertain from port tack, take the keep-clear role."}
+    },
+    {
+      "rule_number": "Rule 13", "title": "Overtaking", "category": "Steering and Sailing",
+      "summary": "An overtaking vessel keeps out of the way until finally past and clear. A vessel approaching from more than 22.5 degrees abaft the other vessel's beam is overtaking; doubt is resolved in favor of being overtaking.",
+      "memory_hook": "Coming from astern? Keep clear until past and clear.",
+      "asa_inland_note": "A later bearing change does not cancel the overtaking duty before the vessels are past and clear.",
+      "key_points": ["At night, the overtaking vessel would see only the sternlight, not the sidelights.", "When uncertain whether overtaking, assume it is overtaking.", "The duty continues despite later changes in relative bearing."],
+      "exercise": {"prompt": "You approach another vessel from its stern sector and are unsure whether you are overtaking. What is the required assumption?", "options": [{"id":"a","text":"Assume you are crossing and claim stand-on status."},{"id":"b","text":"Assume you are overtaking and keep clear until past and clear."},{"id":"c","text":"Assume the other vessel must turn first."},{"id":"d","text":"Change the classification whenever the bearing shifts."}], "answer":"b", "explanation":"Rule 13 resolves doubt in favor of being overtaking and maintains the duty until finally past and clear.", "remediation":"Check the stern sector and retain the overtaking duty through the complete pass."}
+    },
+    {
+      "rule_number": "Rule 14", "title": "Head-on situation", "category": "Steering and Sailing",
+      "summary": "When two power-driven vessels meet on reciprocal or nearly reciprocal courses with collision risk, each alters to starboard to pass port-to-port. If uncertain, assume a head-on situation.",
+      "memory_hook": "Power-driven head-on: both alter to starboard.",
+      "asa_inland_note": "Inland Rules contain specified river and current exceptions; check whether one applies.",
+      "key_points": ["The ordinary rule applies to power-driven vessels meeting on reciprocal or nearly reciprocal courses.", "A head-on encounter is not determined solely by a numeric bearing threshold.", "In doubt, assume the situation exists and act accordingly."],
+      "exercise": {"prompt": "At night, a power-driven vessel appears ahead with both sidelights visible and its masthead lights nearly in line. What is the ordinary Rule 14 action?", "options": [{"id":"a","text":"Alter to starboard to pass port-to-port."},{"id":"b","text":"Alter to port to pass starboard-to-starboard."},{"id":"c","text":"Hold course because the other vessel must give way."},{"id":"d","text":"Apply Rule 12 because the vessels are approaching."}], "answer":"a", "explanation":"Those aspects indicate a head-on or nearly head-on encounter; each power-driven vessel should alter to starboard under the ordinary rule.", "remediation":"Confirm the encounter type, then state both vessels' expected starboard action and intended passing arrangement."}
+    },
+    {
+      "rule_number": "Rule 15", "title": "Crossing situation", "category": "Steering and Sailing",
+      "summary": "When two power-driven vessels cross with collision risk, the vessel that has the other on its own starboard side keeps out of the way and, if circumstances permit, avoids crossing ahead.",
+      "memory_hook": "Power-driven vessel on your starboard: keep clear.",
+      "asa_inland_note": "Inland waters have specified river-crossing exceptions; apply them only where designated.",
+      "key_points": ["Rule 15 is for crossing power-driven vessels in sight.", "Identify the other vessel relative to your own starboard side.", "If circumstances permit, do not cross ahead of the other vessel."],
+      "exercise": {"prompt": "Two power-driven vessels are crossing in sight, and the other vessel is on your starboard side. What is your role?", "options": [{"id":"a","text":"Keep out of the way and, if circumstances permit, avoid crossing ahead."},{"id":"b","text":"Maintain course because traffic on starboard always gives way."},{"id":"c","text":"Sound one short blast and continue without maneuvering."},{"id":"d","text":"Apply the sailing tack rule."}], "answer":"a", "explanation":"Rule 15 assigns the keep-out-of-the-way duty to the power-driven vessel that has the other on its own starboard side.", "remediation":"Use your own vessel as the reference: where is the other vessel relative to your starboard side?"}
+    },
+    {
+      "rule_number": "Rule 16", "title": "Action by give-way vessel", "category": "Steering and Sailing",
+      "summary": "A vessel required to keep out of the way should, so far as possible, take early and substantial action to keep well clear.",
+      "memory_hook": "Give-way means act early and make the result clear.",
+      "asa_inland_note": "Use applicable Inland passing and warning signals when the encounter requires them.",
+      "key_points": ["Do not wait for close quarters before acting.", "Choose an action that produces a clear, safe passing result.", "Continue to comply with other applicable collision-avoidance rules."],
+      "exercise": {"prompt": "You are the give-way vessel and collision risk is developing. Which response is best?", "options": [{"id":"a","text":"Take early, substantial action to keep well clear, then monitor the outcome."},{"id":"b","text":"Wait until the stand-on vessel changes course."},{"id":"c","text":"Make several slight adjustments with no clear passing plan."},{"id":"d","text":"Turn toward the other vessel to show your intention."}], "answer":"a", "explanation":"Rule 16 requires early and substantial action, so far as possible, to keep well clear.", "remediation":"Describe an early, apparent action and how you will ensure the other vessel is safely clear."}
+    },
+    {
+      "rule_number": "Rule 17", "title": "Action by stand-on vessel", "category": "Steering and Sailing",
+      "summary": "The stand-on vessel initially keeps course and speed, may act when the give-way vessel is not acting appropriately, and must act when the give-way vessel alone cannot avoid collision.",
+      "memory_hook": "Stand on initially, monitor, then act as required to avoid collision.",
+      "asa_inland_note": "Stand-on status never removes the duty to take action when collision cannot otherwise be avoided.",
+      "key_points": ["Initially keep course and speed when the rule says stand on.", "The stand-on vessel may maneuver once failure by the give-way vessel is apparent.", "When the give-way vessel alone cannot avoid collision, the stand-on vessel must take the best avoiding action."],
+      "exercise": {"prompt": "You are stand-on. The give-way vessel is making no apparent move, and collision risk continues to increase. What should you do?", "options": [{"id":"a","text":"Monitor; act when appropriate under Rule 17, and do not wait if the give-way vessel alone cannot avoid collision."},{"id":"b","text":"Maintain course and speed until impact because you are stand-on."},{"id":"c","text":"Assume the give-way vessel has seen you and stop keeping lookout."},{"id":"d","text":"Turn to port in every crossing encounter."}], "answer":"a", "explanation":"Rule 17 describes an initial stand-on phase and escalation as danger develops; it never requires accepting a collision.", "remediation":"State the stages: maintain initially, monitor, may act when failure is apparent, and must act when needed to avoid collision."}
+    },
+    {
+      "rule_number": "Rule 18", "title": "Responsibilities between vessels", "category": "Steering and Sailing",
+      "summary": "Except where Rules 9, 10, or 13 control, the rule sets responsibilities among power-driven, sailing, fishing, NUC, RAM, and CBD vessels. A vessel's status does not cancel the need to avoid collision.",
+      "memory_hook": "Check special rules first, then identify each vessel's status.",
+      "asa_inland_note": "The Inland version has particular provisions and exceptions; do not reduce the hierarchy to an unconditional right-of-way list.",
+      "key_points": ["NUC and RAM status affect which vessels must keep clear.", "Sailing vessels generally keep clear of NUC, RAM, and fishing vessels; fishing vessels have duties toward NUC and RAM.", "A vessel constrained by draft should be given room when safe, but must navigate with particular caution."],
+      "exercise": {"prompt": "A sailing vessel under sail approaches a vessel engaged in fishing with gear that restricts maneuverability. Which vessel generally keeps clear under Rule 18?", "options": [{"id":"a","text":"The sailing vessel."},{"id":"b","text":"The fishing vessel must always keep clear of every vessel."},{"id":"c","text":"The vessel with the wind on port, regardless of other rules."},{"id":"d","text":"Neither; Rule 18 never assigns responsibilities."}], "answer":"a", "explanation":"Under the ordinary Rule 18 hierarchy, a sailing vessel underway keeps out of the way of a vessel engaged in fishing.", "remediation":"Identify vessel status and check the exceptions in Rules 9, 10, and 13 before applying the responsibility rule."}
+    },
+    {
+      "rule_number": "Rule 19", "title": "Conduct in restricted visibility", "category": "Restricted Visibility",
+      "summary": "When vessels are not in sight in or near restricted visibility, proceed at safe speed, keep engines ready if power-driven, assess radar targets, avoid prohibited turns, and reduce to minimum steerageway when required.",
+      "memory_hook": "Fog is not a stand-on encounter: safe speed, radar appraisal, cautious action.",
+      "asa_inland_note": "Rules 11–18 do not govern vessels that are not in sight; use the applicable Inland fog-signal requirements.",
+      "key_points": ["A radar-detected target calls for close-quarters and collision-risk assessment.", "So far as possible, do not turn to port for a target forward of the beam except when overtaking, or turn toward a target abeam or abaft.", "On the specified forward fog signal or unavoidable close-quarters risk, reduce to minimum speed for keeping course and navigate with extreme caution."],
+      "exercise": {"prompt": "In dense fog, radar shows a target forward of your beam and collision risk is developing. Which course-alteration guidance applies?", "options": [{"id":"a","text":"So far as possible, avoid turning to port for that target; take timely cautious action at safe speed."},{"id":"b","text":"Turn to port because the target is not visible."},{"id":"c","text":"Assume the target is stand-on under Rule 15."},{"id":"d","text":"Increase speed to pass before the target gets closer."}], "answer":"a", "explanation":"Rule 19 requires safe speed and cautious radar-based action; for a target forward of the beam it says to avoid a port alteration so far as possible, except when overtaking.", "remediation":"Locate the target relative to the beam, apply Rule 19(d), and reassess speed and close-quarters risk."}
+    },
+    {
+      "rule_number": "Rule 20", "title": "Application of lights and shapes", "category": "Lights and Shapes",
+      "summary": "Rules 20–31 apply in all weather. Prescribed lights are generally shown from sunset to sunrise and in restricted visibility by day; prescribed shapes are shown by day.",
+      "memory_hook": "Lights at night and in restricted visibility; shapes by day.",
+      "asa_inland_note": "Check the applicable Inland light provisions and local requirements for the vessel and waterway.",
+      "key_points": ["The lights-and-shapes rules apply in all weather.", "Do not display other lights that can be mistaken for prescribed lights or impair lookout.", "The prescribed shapes are displayed by day."],
+      "exercise": {"prompt": "A vessel is operating in restricted visibility at midday. Which statement about navigation lights is correct?", "options": [{"id":"a","text":"Required lights are shown in restricted visibility even during daylight, subject to the rule's provisions."},{"id":"b","text":"Lights are never used before sunset."},{"id":"c","text":"Day shapes replace all lights in restricted visibility."},{"id":"d","text":"Any bright deck light can substitute for prescribed lights."}], "answer":"a", "explanation":"Rule 20 requires prescribed lights from sunset to sunrise and also in restricted visibility during daylight, with its stated exceptions.", "remediation":"Separate the all-weather scope from when lights and shapes must be displayed."}
+    },
+    {
+      "rule_number": "Rule 21", "title": "Definitions of lights", "category": "Lights and Shapes",
+      "summary": "Defines masthead, sidelights, sternlight, towing light, all-round light, and flashing light by color, location, arc, or characteristic.",
+      "memory_hook": "Learn light names and arcs before interpreting a vessel's aspect.",
+      "asa_inland_note": "Use the prescribed characteristics for the applicable rule set; some Inland details differ.",
+      "key_points": ["Sidelights are green to starboard and red to port.", "A sternlight covers the prescribed aft sector; a masthead light covers the forward sector.", "An all-round light is visible around the horizon; a flashing light has a defined flash rate."],
+      "exercise": {"prompt": "At night you see only the green sidelight of a vessel. Which side of that vessel are you most likely observing?", "options": [{"id":"a","text":"Its starboard side."},{"id":"b","text":"Its port side."},{"id":"c","text":"Directly astern only."},{"id":"d","text":"Its anchor position."}], "answer":"a", "explanation":"Rule 21 defines a green starboard sidelight and a red port sidelight, each covering its prescribed sector.", "remediation":"Memorize color and side first, then combine the observed lights to infer aspect."}
+    },
+    {
+      "rule_number": "Rule 22", "title": "Visibility of lights", "category": "Lights and Shapes",
+      "summary": "Sets minimum visibility ranges for prescribed lights according to vessel length and light type.",
+      "memory_hook": "Required light range depends on vessel length and light category.",
+      "asa_inland_note": "Do not use a single generic range; check the vessel-size band and applicable Inland table.",
+      "key_points": ["The rule specifies minimum ranges rather than guaranteeing visibility in every weather condition.", "Vessel length bands affect required ranges.", "Annex I contains technical details supporting light performance."],
+      "exercise": {"prompt": "A student claims every vessel's masthead and sidelight must have the same minimum range. What is the correction?", "options": [{"id":"a","text":"Minimum ranges vary by light type and vessel length under Rule 22."},{"id":"b","text":"All lights have a universal one-mile range."},{"id":"c","text":"Only paint color determines range."},{"id":"d","text":"Rule 22 applies only to sound signals."}], "answer":"a", "explanation":"Rule 22 assigns minimum ranges by light type and vessel-length category; it does not use one range for every light.", "remediation":"Look up both the light category and vessel length in the applicable table."}
+    },
+    {
+      "rule_number": "Rule 23", "title": "Power-driven vessels underway", "category": "Lights and Shapes",
+      "summary": "Prescribes lights for power-driven vessels underway, with additional or alternative arrangements for vessel size and specified craft.",
+      "memory_hook": "Identify the power-driven underway pattern, then check size exceptions.",
+      "asa_inland_note": "Small-vessel and Inland-specific exceptions mean the basic pattern is not the only permitted arrangement.",
+      "key_points": ["The ordinary arrangement includes a masthead light, sidelights, and sternlight.", "Vessel length and special craft can change or supplement the pattern.", "Interpret the pattern together with other status lights and shapes."],
+      "exercise": {"prompt": "You see a power-driven vessel underway displaying its ordinary navigation-light pattern. Which set best matches the basic Rule 23 arrangement?", "options": [{"id":"a","text":"Masthead light, sidelights, and sternlight, subject to applicable exceptions."},{"id":"b","text":"Two red all-round lights only."},{"id":"c","text":"A white anchor light only."},{"id":"d","text":"Red over green optional sailing lights only."}], "answer":"a", "explanation":"Rule 23's basic pattern for a power-driven vessel underway includes masthead light(s), sidelights, and sternlight, with specified exceptions.", "remediation":"First classify propulsion and underway status, then check length-based alternatives."}
+    },
+    {
+      "rule_number": "Rule 24", "title": "Towing and pushing", "category": "Lights and Shapes",
+      "summary": "Specifies lights and shapes for towing and pushing arrangements, including composite units, alongside tows, and long or partly submerged tows.",
+      "memory_hook": "Determine the towing arrangement and tow length before reading the signal pattern.",
+      "asa_inland_note": "Inland Rules contain detailed towing variations; use the pattern for the actual waterway and arrangement.",
+      "key_points": ["Towing astern uses a towing light and prescribed masthead-light arrangement.", "A tow exceeding 200 meters requires additional signals, including a diamond shape.", "Pushing, towing alongside, and composite units have different arrangements."],
+      "exercise": {"prompt": "A power-driven vessel is towing astern and the tow exceeds 200 meters. Which additional signal should you expect under the ordinary rule?", "options": [{"id":"a","text":"A diamond shape where it can best be seen, with the specified long-tow light arrangement."},{"id":"b","text":"Two red lights indicating NUC in every case."},{"id":"c","text":"A sailing-vessel cone only."},{"id":"d","text":"No additional signal because the tow is astern."}], "answer":"a", "explanation":"Rule 24 adds a diamond shape for a tow exceeding 200 meters and specifies a corresponding towing light arrangement.", "remediation":"Measure the towing relationship and length, then check the correct subsection of Rule 24."}
+    },
+    {
+      "rule_number": "Rule 25", "title": "Sailing vessels underway and vessels under oars", "category": "Lights and Shapes",
+      "summary": "Prescribes lights for sailing vessels underway and permits additional all-round lights. It also covers small sailing vessels, vessels under oars, and a sailing vessel using machinery.",
+      "memory_hook": "Under sail: sailing pattern; using propulsion machinery: show the prescribed cone.",
+      "asa_inland_note": "Check size-specific Inland exceptions and distinguish sail propulsion from engine use.",
+      "key_points": ["Sailing vessels underway show sidelights and a sternlight, subject to permitted options.", "A vessel proceeding under sail while also propelled by machinery displays a cone, apex down, where required.", "Vessels under oars have a specific alternative signal provision."],
+      "exercise": {"prompt": "A sailboat has its engine engaged while proceeding under sail. Which additional day signal indicates this status?", "options": [{"id":"a","text":"A cone with its apex downward, where the rule requires it."},{"id":"b","text":"A black ball at the bow."},{"id":"c","text":"A red-white-red vertical light stack."},{"id":"d","text":"A diamond shape at the stern."}], "answer":"a", "explanation":"Rule 25(e) provides the cone, apex down, for a vessel proceeding under sail while also being propelled by machinery, subject to its size provision.", "remediation":"Distinguish a vessel under sail from a vessel simultaneously using machinery for propulsion."}
+    },
+    {
+      "rule_number": "Rule 26", "title": "Fishing vessels", "category": "Lights and Shapes",
+      "summary": "Prescribes signals for vessels whose fishing apparatus restricts maneuverability and distinguishes trawling from other fishing. Trolling or gear that does not restrict maneuverability is treated differently.",
+      "memory_hook": "Fishing signals depend on whether gear restricts maneuverability and whether the vessel is trawling.",
+      "asa_inland_note": "Recognize status signals but still apply the relevant collision responsibilities and local rules.",
+      "key_points": ["Trawling uses green over white; other qualifying fishing uses red over white.", "Sidelights and sternlight are added when making way through the water.", "Fishing signals do not apply to a vessel whose gear does not restrict maneuverability."],
+      "exercise": {"prompt": "At night, a vessel displays green over white and is making way. What activity is most strongly indicated?", "options": [{"id":"a","text":"Trawling, with additional navigation lights while making way."},{"id":"b","text":"A pilot vessel on duty."},{"id":"c","text":"A vessel not under command."},{"id":"d","text":"A vessel at anchor."}], "answer":"a", "explanation":"Rule 26 distinguishes trawling with green over white from other qualifying fishing with red over white; underway navigation lights are also shown when making way.", "remediation":"Read the fishing status lights as a pair, then check whether the vessel is making way."}
+    },
+    {
+      "rule_number": "Rule 27", "title": "Vessels not under command or restricted in ability to maneuver", "category": "Lights and Shapes",
+      "summary": "Prescribes signals for NUC and RAM vessels and adds specific arrangements for operations such as dredging, diving, or mine clearance.",
+      "memory_hook": "NUC: red-red; RAM: red-white-red, with operation-specific signals.",
+      "asa_inland_note": "A status signal is not itself a distress signal; apply the definitions and applicable Inland provisions.",
+      "key_points": ["NUC uses two all-round red lights or two balls in a vertical line.", "RAM generally uses red-white-red lights or ball-diamond-ball shapes.", "Some restricted operations show which side is obstructed and which side is safe to pass."],
+      "exercise": {"prompt": "A vessel's status lights are red, white, red in a vertical line. Which status is indicated?", "options": [{"id":"a","text":"Restricted in ability to maneuver."},{"id":"b","text":"Not under command."},{"id":"c","text":"Pilot vessel on duty."},{"id":"d","text":"Fishing while trawling."}], "answer":"a", "explanation":"Rule 27's RAM pattern is red-white-red; NUC is two red lights.", "remediation":"Count and order the lights carefully, and distinguish status from distress."}
+    },
+    {
+      "rule_number": "Rule 28", "title": "Vessels constrained by their draught", "category": "Lights and Shapes",
+      "summary": "A power-driven vessel constrained by draft may display three all-round red lights in a vertical line or a cylinder in addition to its power-driven lights.",
+      "memory_hook": "Constrained by draft is a specific status, not simply a large vessel.",
+      "asa_inland_note": "This signal is for the International Rules; the U.S. Inland Rules do not include the same Rule 28 status signal.",
+      "key_points": ["The vessel must be power-driven and severely constrained by draft relative to available depth and width.", "The signal is optional and supplements Rule 23 lights.", "Other vessels should avoid impeding safe passage when the status is properly shown, while the constrained vessel navigates cautiously."],
+      "exercise": {"prompt": "A deep-draft power-driven vessel displays three all-round red lights and is navigating a restricted channel. How should nearby vessels interpret this?", "options": [{"id":"a","text":"It may be constrained by draft; avoid impeding its safe passage and navigate cautiously."},{"id":"b","text":"It is not under command and cannot maneuver at all."},{"id":"c","text":"It is a vessel at anchor."},{"id":"d","text":"It has absolute right-of-way in every situation."}], "answer":"a", "explanation":"Rule 28 is an International Rules signal for a power-driven vessel severely constrained by draft; it does not create an unconditional right-of-way.", "remediation":"Check the precise definition and keep the signal distinct from NUC and RAM."}
+    },
+    {
+      "rule_number": "Rule 29", "title": "Pilot vessels", "category": "Lights and Shapes",
+      "summary": "A vessel on pilotage duty shows white over red and, when underway, its ordinary navigation lights; at anchor it shows the prescribed anchor signal.",
+      "memory_hook": "White over red identifies a vessel engaged on pilotage duty.",
+      "asa_inland_note": "Pilot signals identify duty status; local pilotage requirements and traffic rules still apply.",
+      "key_points": ["The white-over-red pair is shown where best seen.", "Additional lights depend on whether the vessel is underway or at anchor.", "A pilot vessel off duty shows signals for a similar vessel of its length."],
+      "exercise": {"prompt": "At night you identify a white light over a red light on a vessel engaged in pilotage. What status does this indicate?", "options": [{"id":"a","text":"Pilot vessel engaged on pilotage duty."},{"id":"b","text":"Trawling."},{"id":"c","text":"Not under command."},{"id":"d","text":"Vessel constrained by draft."}], "answer":"a", "explanation":"Rule 29 uses white over red for a vessel engaged on pilotage duty; underway and anchor lights are shown as applicable.", "remediation":"Use the vertical pair to identify duty, then read the vessel's other lights for movement status."}
+    },
+    {
+      "rule_number": "Rule 30", "title": "Anchored vessels and vessels aground", "category": "Lights and Shapes",
+      "summary": "Prescribes anchor lights and shapes, with additional signals for a vessel aground and size- or location-specific exceptions.",
+      "memory_hook": "At anchor: white light or ball as prescribed; aground adds signals.",
+      "asa_inland_note": "Check the applicable length, special anchorage, and Inland exceptions before deciding a signal is absent improperly.",
+      "key_points": ["Anchor signals depend on vessel length and may include forward and after lights.", "A vessel aground shows anchor signals plus additional red lights or balls where practicable.", "Exceptions exist for certain small vessels and designated areas."],
+      "exercise": {"prompt": "A vessel is aground at night. Which signal pattern should you expect, subject to the rule's exceptions?", "options": [{"id":"a","text":"Anchor lights plus two all-round red lights in a vertical line, with the prescribed shapes by day."},{"id":"b","text":"Only the underway sidelights."},{"id":"c","text":"White over red pilot lights only."},{"id":"d","text":"No signal because the vessel is stationary."}], "answer":"a", "explanation":"Rule 30 requires a vessel aground to show the applicable anchor signals and additional aground signals, subject to its stated exceptions.", "remediation":"Separate anchor status from aground status; aground adds signals rather than removing them."}
+    },
+    {
+      "rule_number": "Rule 31", "title": "Seaplanes", "category": "Lights and Shapes",
+      "summary": "When a seaplane or WIG craft cannot display prescribed lights or shapes as specified, it must display signals as closely similar in characteristics and position as practicable.",
+      "memory_hook": "Where exact placement is impracticable, show the closest practicable signals.",
+      "asa_inland_note": "Rule 18 also addresses how a seaplane on the water should conduct itself around vessels.",
+      "key_points": ["The rule addresses practical limits on displaying prescribed vessel signals.", "Use the closest practicable characteristics and positions.", "This does not remove the need to avoid impeding other vessels."],
+      "exercise": {"prompt": "A seaplane on the water cannot physically place a prescribed light at the specified vessel position. What does Rule 31 require?", "options": [{"id":"a","text":"Display lights and shapes as closely similar in characteristics and position as practicable."},{"id":"b","text":"Display no signals at all."},{"id":"c","text":"Use distress signals instead."},{"id":"d","text":"Ignore the other steering rules."}], "answer":"a", "explanation":"Rule 31 provides a closest-practicable-similarity standard where exact signal placement or characteristics are impracticable.", "remediation":"Retain the purpose of the prescribed signal and make the closest practicable display."}
+    },
+    {
+      "rule_number": "Rule 32", "title": "Definitions of sound signals", "category": "Sound and Light Signals",
+      "summary": "Defines a whistle, a short blast of about one second, and a prolonged blast of four to six seconds.",
+      "memory_hook": "Short is about one second; prolonged is four to six.",
+      "asa_inland_note": "Signal meaning can differ between International and Inland rules even when duration terms are shared.",
+      "key_points": ["Know the difference between short and prolonged blasts before interpreting a sequence.", "A whistle is an appliance capable of producing prescribed blasts.", "Do not infer signal meaning from duration alone; count and context matter."],
+      "exercise": {"prompt": "A sound signal lasts about five seconds. Under Rule 32, how is it classified?", "options": [{"id":"a","text":"A prolonged blast."},{"id":"b","text":"A short blast."},{"id":"c","text":"A distress call in every context."},{"id":"d","text":"Not a recognized blast."}], "answer":"a", "explanation":"A prolonged blast lasts four to six seconds; a short blast lasts about one second.", "remediation":"Learn the duration ranges, then use the rule that defines the signal sequence's meaning."}
+    },
+    {
+      "rule_number": "Rule 33", "title": "Equipment for sound signals", "category": "Sound and Light Signals",
+      "summary": "Sets whistle, bell, and gong equipment requirements according to vessel length, with an alternate efficient-signal provision for smaller vessels.",
+      "memory_hook": "Required sound equipment scales with vessel length.",
+      "asa_inland_note": "Check the current Inland requirements and any local equipment rules for the vessel.",
+      "key_points": ["Vessels 12 meters or more require a whistle and bell.", "Vessels 100 meters or more also require a gong under the rule.", "Smaller vessels need an efficient means of making a sound signal even where the full equipment set is not required."],
+      "exercise": {"prompt": "What extra sound appliance does a vessel 100 meters or more carry in addition to a whistle and bell?", "options": [{"id":"a","text":"A gong."},{"id":"b","text":"A foghorn that can only sound one blast."},{"id":"c","text":"A siren replacing every other signal."},{"id":"d","text":"No extra appliance is specified."}], "answer":"a", "explanation":"Rule 33 requires a gong as well for a vessel 100 meters or more in length.", "remediation":"Remember the thresholds: whistle and bell from 12 meters; gong added at 100 meters."}
+    },
+    {
+      "rule_number": "Rule 34", "title": "Manoeuvring and warning signals", "category": "Sound and Light Signals",
+      "summary": "Prescribes maneuvering and warning signals for vessels in sight, including whistle signals for course changes, doubt, and obscured bends.",
+      "memory_hook": "One short starboard, two short port, three short astern under International Rule 34(a).",
+      "asa_inland_note": "Inland one- and two-blast signals express intended passing side in covered encounters, not the International rudder-action meaning.",
+      "key_points": ["International one short means altering course to starboard; two short means port; three short means astern propulsion.", "At least five short rapid blasts indicate doubt or danger in the specified circumstances.", "Inland passing signals have different meanings and conditions."],
+      "exercise": {"prompt": "Under the International Rule 34(a), what does one short blast indicate when a power-driven vessel maneuvers in sight?", "options": [{"id":"a","text":"I am altering course to starboard."},{"id":"b","text":"I am altering course to port."},{"id":"c","text":"I am operating astern propulsion."},{"id":"d","text":"I am at anchor."}], "answer":"a", "explanation":"Under International Rule 34(a), one short blast indicates a starboard course alteration. Inland passing-signal meanings differ.", "remediation":"Check which rule set applies before interpreting one- and two-blast signals."}
+    },
+    {
+      "rule_number": "Rule 35", "title": "Sound signals in restricted visibility", "category": "Sound and Light Signals",
+      "summary": "Prescribes fog signals for power-driven vessels, sailing and fishing vessels, NUC and RAM vessels, tows, anchored vessels, and vessels aground.",
+      "memory_hook": "Learn the fog-signal sequence by vessel status and whether it is making way.",
+      "asa_inland_note": "Intervals and some required details vary in Inland waters; consult the applicable text.",
+      "key_points": ["A power-driven vessel making way sounds one prolonged blast at intervals of not more than two minutes.", "A power-driven vessel underway but stopped and making no way sounds two prolonged blasts.", "Other vessel categories have distinct sequences; anchored and aground vessels have bell signals and exceptions."],
+      "exercise": {"prompt": "In restricted visibility, a power-driven vessel is underway but stopped and making no way through the water. Which signal does Rule 35 specify?", "options": [{"id":"a","text":"Two prolonged blasts in succession, with the prescribed interval between them."},{"id":"b","text":"One short blast every minute."},{"id":"c","text":"Three short blasts followed by one prolonged."},{"id":"d","text":"No sound signal."}], "answer":"a", "explanation":"Rule 35(b) distinguishes a power-driven vessel underway but stopped and making no way from one making way, which sounds one prolonged blast.", "remediation":"Classify both underway status and whether the vessel is making way before choosing a fog signal."}
+    },
+    {
+      "rule_number": "Rule 36", "title": "Signals to attract attention", "category": "Sound and Light Signals",
+      "summary": "A vessel may use a light or sound signal to attract attention if it cannot be mistaken for a prescribed signal and does not embarrass or endanger another vessel.",
+      "memory_hook": "Attract attention without confusion, glare, or hazard.",
+      "asa_inland_note": "Do not use attention signals that could be confused with navigation, maneuvering, or distress signals.",
+      "key_points": ["Signals must not be mistaken for a signal authorized elsewhere in the Rules.", "A searchlight may be directed toward danger without dazzling another vessel.", "Attention signals do not replace a required maneuvering or distress signal."],
+      "exercise": {"prompt": "You want to warn another vessel about an unlit obstruction. Which signal choice is appropriate under Rule 36?", "options": [{"id":"a","text":"A clear attention signal that cannot be confused with a prescribed signal, directed so as not to dazzle or embarrass."},{"id":"b","text":"A distress signal, even though no vessel is in distress."},{"id":"c","text":"A flashing pattern identical to a maneuvering signal."},{"id":"d","text":"A searchlight aimed into the other vessel's wheelhouse."}], "answer":"a", "explanation":"Rule 36 allows attention signals only when they are not confusing and do not embarrass or endanger another vessel.", "remediation":"Choose a signal that communicates danger without imitating a prescribed or distress signal."}
+    },
+    {
+      "rule_number": "Rule 37", "title": "Distress signals", "category": "Sound and Light Signals",
+      "summary": "A vessel in distress and requiring assistance uses or exhibits signals listed in Annex IV.",
+      "memory_hook": "Distress means grave need for assistance; recognize Annex IV signals.",
+      "asa_inland_note": "Use current Coast Guard and radio procedures in addition to recognizing the listed signals.",
+      "key_points": ["Annex IV includes recognized radio, visual, sound, and other distress indications.", "Distress signals are reserved for distress and need of assistance.", "If a distress signal is observed, respond under applicable rescue duties and procedures."],
+      "exercise": {"prompt": "You observe a recognized distress signal from another vessel. What is the correct interpretation?", "options": [{"id":"a","text":"The vessel is in distress and requires assistance; respond using applicable procedures."},{"id":"b","text":"It is an optional way to request routine traffic information."},{"id":"c","text":"It means the vessel is constrained by draft."},{"id":"d","text":"It can be ignored if the vessel is visible."}], "answer":"a", "explanation":"Rule 37 points to Annex IV for distress signals, which indicate distress and need of assistance.", "remediation":"Review Annex IV signals and the appropriate local search-and-rescue response."}
+    },
+    {
+      "rule_number": "Rule 38", "title": "Exemptions", "category": "Exemptions",
+      "summary": "Provides limited, date-dependent exemptions for certain existing vessels or classes from specified requirements when they meet stated conditions.",
+      "memory_hook": "Exemptions are narrow, conditional, and tied to construction dates.",
+      "asa_inland_note": "Do not assume an exemption applies; verify the vessel's documented status and the applicable rule set.",
+      "key_points": ["Exemptions apply to specified provisions, not to the Rules as a whole.", "Construction or conversion dates and compliance with earlier requirements matter.", "A vessel-specific exemption must be verified with authoritative documentation."],
+      "exercise": {"prompt": "An older vessel owner says Rule 38 means the vessel is exempt from all collision rules. How should you assess that claim?", "options": [{"id":"a","text":"Check the exact listed provision, vessel dates, conditions, and documentation; Rule 38 is not a blanket exemption."},{"id":"b","text":"Accept it because any older vessel is exempt."},{"id":"c","text":"Ignore Rule 38 because no exemptions can exist."},{"id":"d","text":"Treat exemptions as permission to disregard lookout duties."}], "answer":"a", "explanation":"Rule 38 contains limited exemptions tied to specified equipment provisions and conditions, not a general waiver of collision-avoidance duties.", "remediation":"Verify the exact provision and vessel evidence with the current official rule text."}
+    },
+    {
+      "rule_number": "Rule 39", "title": "Definitions", "category": "Verification of Compliance",
+      "summary": "Defines audit-related terms used in Part F, including audit, the IMO Member State Audit Scheme, the Code for Implementation, and audit standard.",
+      "memory_hook": "Part F defines how Convention implementation is audited.",
+      "asa_inland_note": "This is a Convention-level verification provision, not a vessel encounter priority rule.",
+      "key_points": ["Rule 39 belongs to Part F, added for verification of Convention compliance.", "Its terms describe audits and implementation standards.", "Do not confuse it with local training, qualification, or navigation supplements."],
+      "exercise": {"prompt": "A learner finds Rule 39 in the COLREGs. What subject does it address?", "options": [{"id":"a","text":"Definitions for the Convention's audit and verification provisions."},{"id":"b","text":"Training qualifications for recreational sailors."},{"id":"c","text":"Local harbor navigation supplements."},{"id":"d","text":"A vessel's overtaking duty."}], "answer":"a", "explanation":"Rule 39 defines audit-related terms for Part F; it is not a training or maneuvering rule.", "remediation":"Remember that the Convention includes a Part F on verification of compliance."}
+    },
+    {
+      "rule_number": "Rule 40", "title": "Application", "category": "Verification of Compliance",
+      "summary": "Requires Contracting Parties to use the Code for Implementation when carrying out their Convention obligations and responsibilities.",
+      "memory_hook": "Rule 40 applies the IMO implementation code to Contracting Parties.",
+      "asa_inland_note": "This Convention-level provision concerns states and implementation, not a vessel's local encounter role.",
+      "key_points": ["Rule 40 is part of Part F.", "It concerns Contracting Parties and their Convention obligations.", "It does not replace the vessel-conduct rules in Parts B–D."],
+      "exercise": {"prompt": "Who is the subject of Rule 40's requirement to use the Code for Implementation?", "options": [{"id":"a","text":"Contracting Parties carrying out Convention obligations."},{"id":"b","text":"Only the stand-on vessel in a crossing situation."},{"id":"c","text":"Any vessel using a traffic lane."},{"id":"d","text":"A pilot vessel while off duty."}], "answer":"a", "explanation":"Rule 40 addresses Contracting Parties and application of the IMO Code for Implementation.", "remediation":"Keep Part F's state-level implementation duties separate from vessel-level steering rules."}
+    },
+    {
+      "rule_number": "Rule 41", "title": "Verification of compliance", "category": "Verification of Compliance",
+      "summary": "Provides for periodic IMO audits of Contracting Parties, cooperation with those audits, and action programs addressing findings.",
+      "memory_hook": "Rule 41 verifies Convention implementation through periodic audits.",
+      "asa_inland_note": "This provision concerns Contracting Parties and the Organization; it does not prescribe a vessel's collision maneuver.",
+      "key_points": ["Audits assess compliance with and implementation of the Convention.", "The Secretary-General administers the audit scheme under the rule.", "Contracting Parties facilitate audits and address findings through action programs."],
+      "exercise": {"prompt": "What does Rule 41 require in broad terms?", "options": [{"id":"a","text":"Periodic audits of Contracting Parties and follow-up to address findings."},{"id":"b","text":"A vessel must alter to starboard in every encounter."},{"id":"c","text":"Every sailor must hold a specified training certificate."},{"id":"d","text":"Local ports must add a fifth distress signal."}], "answer":"a", "explanation":"Rule 41 establishes the Convention's verification-of-compliance audit process for Contracting Parties.", "remediation":"Treat Rule 41 as Convention oversight, not a maneuvering, equipment, or qualification rule."}
+    },
+    {
+      "rule_number": "Annex I", "title": "Positioning and technical details of lights and shapes", "category": "Annexes",
+      "summary": "Sets technical standards for light and shape construction, placement, spacing, sectors, and visibility so signals can be recognized as intended.",
+      "memory_hook": "Annex I explains how prescribed lights and shapes are positioned and made visible.",
+      "asa_inland_note": "Consult the applicable technical requirements for the vessel and navigation-rule regime.",
+      "key_points": ["Covers physical dimensions and placement of lights and shapes.", "Defines horizontal and vertical sectors and screening details.", "Supports interpretation of the signal patterns in Rules 20–31."],
+      "exercise": {"prompt": "A vessel's lights appear incorrectly spaced and partly obscured by structures. Which annex contains technical placement and visibility details?", "options": [{"id":"a","text":"Annex I."},{"id":"b","text":"Annex II."},{"id":"c","text":"Annex III."},{"id":"d","text":"Annex IV."}], "answer":"a", "explanation":"Annex I covers technical details for the positioning and visibility of lights and shapes.", "remediation":"Match each annex to its subject: lights/shapes, fishing, sound appliances, or distress."}
+    },
+    {
+      "rule_number": "Annex II", "title": "Additional signals for fishing vessels", "category": "Annexes",
+      "summary": "Adds signals for fishing vessels operating in close proximity, supplementing the basic fishing-vessel signals in Rule 26.",
+      "memory_hook": "Annex II adds specialized signals for fishing vessels working close together.",
+      "asa_inland_note": "Check whether the specific Annex II provision is included in the applicable local rule set.",
+      "key_points": ["The annex concerns fishing vessels in close proximity.", "It supplements rather than replaces Rule 26.", "Signal meaning depends on fishing method and operation."],
+      "exercise": {"prompt": "You are studying additional signals used by fishing vessels operating close to one another. Where should you look?", "options": [{"id":"a","text":"Annex II, alongside Rule 26."},{"id":"b","text":"Annex I only."},{"id":"c","text":"Annex III only."},{"id":"d","text":"Rule 38 only."}], "answer":"a", "explanation":"Annex II adds signals for fishing vessels in close proximity and is related to Rule 26.", "remediation":"Use Rule 26 for basic status signals and Annex II for its additional close-proximity signals."}
+    },
+    {
+      "rule_number": "Annex III", "title": "Technical details of sound signal appliances", "category": "Annexes",
+      "summary": "Specifies technical performance and installation details for whistles, bells, gongs, and other sound-signaling appliances.",
+      "memory_hook": "Annex III covers how sound appliances are built and perform.",
+      "asa_inland_note": "Use the technical annex applicable to the vessel's operating regime and equipment certification.",
+      "key_points": ["Covers whistle frequency, audibility, and directional characteristics.", "Includes construction and intensity provisions for bells and gongs.", "Complements the carriage requirements in Rule 33."],
+      "exercise": {"prompt": "Which annex supplements Rule 33 with technical details about whistle and bell performance?", "options": [{"id":"a","text":"Annex III."},{"id":"b","text":"Annex I."},{"id":"c","text":"Annex II."},{"id":"d","text":"Annex IV."}], "answer":"a", "explanation":"Annex III provides technical details for sound signal appliances; Rule 33 addresses equipment carried.", "remediation":"Distinguish equipment carriage requirements from technical performance specifications."}
+    },
+    {
+      "rule_number": "Annex IV", "title": "Distress signals", "category": "Annexes",
+      "summary": "Lists recognized distress signals used to indicate grave danger and a need for assistance, including radio, visual, and sound indications.",
+      "memory_hook": "Annex IV is the reference list for Rule 37 distress signals.",
+      "asa_inland_note": "Follow current Coast Guard search-and-rescue and radio procedures when using or responding to distress signals.",
+      "key_points": ["Includes a range of radio and visual signals, not just flares.", "Signals are reserved for distress and need of assistance.", "Rule 37 directs users to Annex IV."],
+      "exercise": {"prompt": "Which annex should you consult to identify the recognized signals referenced by Rule 37?", "options": [{"id":"a","text":"Annex IV."},{"id":"b","text":"Annex I."},{"id":"c","text":"Annex II."},{"id":"d","text":"Annex III."}], "answer":"a", "explanation":"Rule 37 points to Annex IV for recognized distress signals.", "remediation":"Connect Rule 37 with Annex IV, and reserve distress indications for genuine distress."}
+    }
+  ]
+}

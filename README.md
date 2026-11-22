@@ -30,3 +30,11 @@ The API is served at `http://localhost:7071/api`; the Angular development server
 - `npm run build`
 
 The development-only state selector exposes data, loading, empty, and error states. Production disables it and the Angular service worker caches the app shell and bundled learning content.
+
+## COLREGs Study Content
+
+The offline reference contains the 41 numbered COLREGs provisions and Annexes I–IV. Rule entries include an original study summary, key application points, International/Inland context, search terms, and one scenario-based multiple-choice exercise with immediate rationale and remediation. Rule details and exercises are bundled together in `services/watchwatcher-web/public/assets/reference/colregs_catalog.json` so the offline reference always has its matching practice item.
+
+Content is a study aid, not authoritative legal text. It is checked against the [USCG Navigation Rules Amalgamated International & U.S. Inland](https://www.navcen.uscg.gov/navigation-rules-amalgamated); summaries and scenarios are written for this app rather than copied from the source. Local, vessel-specific, and amended rules can differ, so use the current applicable official publication for navigation decisions.
+
+The web test suite verifies all rule numbers are present, rule and exercise IDs are unique, answers reference valid options, and each rule has complete study content. A component test covers selecting and checking an answer on a rule detail page.
