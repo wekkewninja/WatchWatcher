@@ -2,11 +2,13 @@ import type {
   EvaluationRequest as SharedEvaluationRequest,
   EvaluationResult as SharedEvaluationResult,
   ProgressSnapshot as SharedProgressSnapshot,
+  RuleExerciseAttempt as SharedRuleExerciseAttempt,
   PublicAccount,
 } from '@watchwatcher/shared/types';
 
 export type Learner = PublicAccount;
 export type ProgressSnapshot = SharedProgressSnapshot;
+export type RuleExerciseAttempt = SharedRuleExerciseAttempt;
 export type EvaluationRequest = SharedEvaluationRequest;
 export type EvaluationResult = SharedEvaluationResult & { passed: boolean };
 

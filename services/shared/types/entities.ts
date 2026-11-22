@@ -16,6 +16,15 @@ export interface ProgressSnapshot {
   topicMastery: Record<string, number>;
   weakSpotLog: Array<{ topicId: string; tag: string; timestamp: string }>;
   drillQueue: string[];
+  ruleExerciseAttempts: RuleExerciseAttempt[];
+}
+
+export interface RuleExerciseAttempt {
+  id: string;
+  ruleId: string;
+  selectedOptionId: string;
+  correct: boolean;
+  attemptedAt: string;
 }
 
 export interface StoredProgress extends ProgressSnapshot {

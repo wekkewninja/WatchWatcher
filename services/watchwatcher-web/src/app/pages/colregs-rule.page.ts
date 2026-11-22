@@ -5,11 +5,12 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import type { Subscription } from 'rxjs';
 import { ColregsReferenceService } from '../core/services/colregs-reference.service';
-import type { ColregsExercise, ColregsRule } from '../domain-types';
+import type { ColregsRule } from '../domain-types';
+import { ColregsExerciseCardComponent } from '../shared/colregs-exercise-card.component';
 
 @Component({
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule],
+  imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule, ColregsExerciseCardComponent],
   template: `
     <main class="page-content colregs-detail-page">
       @if (loading()) {
@@ -22,12 +23,7 @@ import type { ColregsExercise, ColregsRule } from '../domain-types';
         <mat-card class="rule-detail-card"><mat-card-header><mat-icon mat-card-avatar>checklist</mat-icon><mat-card-title>Key points</mat-card-title></mat-card-header><mat-card-content><ul class="rule-key-points">@for (point of entry.keyPoints; track point) { <li>{{ point }}</li> }</ul></mat-card-content></mat-card>
         @if (entry.memoryHook) { <mat-card class="rule-detail-card memory-card"><mat-card-header><mat-icon mat-card-avatar>lightbulb</mat-icon><mat-card-title>Memory hook</mat-card-title></mat-card-header><mat-card-content><p>{{ entry.memoryHook }}</p></mat-card-content></mat-card> }
         @if (entry.asaInlandNote) { <mat-card class="rule-detail-card"><mat-card-header><mat-icon mat-card-avatar>compare_arrows</mat-icon><mat-card-title>RYA / ASA and Inland note</mat-card-title></mat-card-header><mat-card-content><p>{{ entry.asaInlandNote }}</p></mat-card-content></mat-card> }
-        <mat-card class="rule-detail-card rule-practice-card"><mat-card-header><mat-icon mat-card-avatar>quiz</mat-icon><mat-card-title>Practice scenario</mat-card-title><mat-card-subtitle>Choose the safest answer</mat-card-subtitle></mat-card-header><mat-card-content>
-          <p class="exercise-prompt">{{ entry.exercise.prompt }}</p>
-          <fieldset class="exercise-options"><legend>Answer choices</legend>@for (option of entry.exercise.options; track option.id) { <label [class.selected]="selectedOption() === option.id"><input type="radio" name="colregs-exercise" [value]="option.id" [checked]="selectedOption() === option.id" (change)="selectOption(option.id)"><span>{{ option.text }}</span></label> }</fieldset>
-          <button mat-flat-button type="button" [disabled]="!selectedOption()" (click)="checkAnswer()"><mat-icon>task_alt</mat-icon> Check answer</button>
-          @if (exerciseChecked()) { <div class="exercise-feedback" [class.correct]="selectedOption() === entry.exercise.answer" role="status"><strong>{{ selectedOption() === entry.exercise.answer ? 'Correct' : 'Review this one' }}</strong><p>{{ entry.exercise.explanation }}</p>@if (selectedOption() !== entry.exercise.answer) { <p><strong>Correct answer:</strong> {{ correctAnswer(entry.exercise) }}</p><p><strong>Review:</strong> {{ entry.exercise.remediation }}</p> }</div> }
-        </mat-card-content></mat-card>
+        <ww-colregs-exercise-card [rule]="entry" />
         <div class="rule-detail-meta"><span><mat-icon>label</mat-icon> Search terms</span><div class="keyword-row">@for (keyword of entry.keywords; track keyword) { <span>{{ keyword }}</span> }</div></div>
         <mat-card class="authority-note"><mat-icon>info</mat-icon><p>This offline entry is a study summary, not the complete authoritative legal wording. Consult the current official COLREGs publication for the full rule text.</p></mat-card>
       }
@@ -38,8 +34,6 @@ export class ColregsRulePage implements OnDestroy {
   readonly rule = signal<ColregsRule | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
-  readonly selectedOption = signal<string | null>(null);
-  readonly exerciseChecked = signal(false);
   private readonly routeSubscription: Subscription;
 
   constructor(route: ActivatedRoute, private readonly reference: ColregsReferenceService) {
@@ -51,25 +45,10 @@ export class ColregsRulePage implements OnDestroy {
 
   ngOnDestroy(): void { this.routeSubscription.unsubscribe(); }
 
-  selectOption(optionId: string): void {
-    this.selectedOption.set(optionId);
-    this.exerciseChecked.set(false);
-  }
-
-  checkAnswer(): void {
-    if (this.selectedOption()) this.exerciseChecked.set(true);
-  }
-
-  correctAnswer(exercise: ColregsExercise): string {
-    return exercise.options.find((option) => option.id === exercise.answer)?.text ?? '';
-  }
-
   private async load(ruleId: string): Promise<void> {
     this.loading.set(true);
     this.error.set('');
     this.rule.set(null);
-    this.selectedOption.set(null);
-    this.exerciseChecked.set(false);
     try {
       const entry = (await this.reference.search('')).find((candidate) => candidate.id === ruleId);
       if (!entry) throw new Error('This rule was not found in the bundled reference.');

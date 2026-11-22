@@ -5,6 +5,7 @@ import type {
   ProgressSyncResponse,
   PublicAccount,
   SessionResponse,
+  RuleExerciseAttempt,
   StoredProgress,
 } from '@watchwatcher/shared/types';
 import type { ColregsExercise, ColregsRule, EvaluationResult, StudyModule, StudySnapshot } from '../app/domain-types';
@@ -43,6 +44,7 @@ interface ColregsAsset {
 }
 
 let sessionToken: string | null = null;
+let sessionAccountId: string | null = null;
 let cloudRevision: number | null = null;
 let curriculumPromise: Promise<CurriculumAsset> | null = null;
 let colregsPromise: Promise<ColregsAsset> | null = null;
@@ -111,6 +113,18 @@ function parseProgress(value: unknown): StoredProgress {
     };
   });
   const drillQueue = array(progress['drillQueue'], 'drill queue').map((topicId) => text(topicId, 'drill topic id'));
+  const ruleExerciseAttempts = array(progress['ruleExerciseAttempts'] ?? [], 'rule exercise attempts').map((value) => {
+    const attempt = object(value, 'rule exercise attempt');
+    const correct = attempt['correct'];
+    if (typeof correct !== 'boolean') throw new Error('The API returned an invalid exercise result.');
+    return {
+      id: text(attempt['id'], 'exercise attempt id'),
+      ruleId: text(attempt['ruleId'], 'exercise rule id'),
+      selectedOptionId: text(attempt['selectedOptionId'], 'selected exercise option'),
+      correct,
+      attemptedAt: text(attempt['attemptedAt'], 'exercise attempt timestamp'),
+    } satisfies RuleExerciseAttempt;
+  });
   const revision = finiteNumber(progress['revision'], 'progress revision');
   const syncedAt = progress['syncedAt'];
   if (typeof syncedAt !== 'string' && syncedAt !== null) throw new Error('The API returned an invalid sync timestamp.');
@@ -119,6 +133,7 @@ function parseProgress(value: unknown): StoredProgress {
     topicMastery,
     weakSpotLog,
     drillQueue,
+    ruleExerciseAttempts,
     revision,
     syncedAt,
   };
@@ -156,14 +171,20 @@ function errorMessage(value: unknown, fallback: string): string {
 
 async function request(path: string, init: RequestInit = {}, authenticated = false): Promise<unknown> {
   if (authenticated && !sessionToken) throw new Error('Sign in to use account services.');
+  const tokenAtRequest = authenticated ? sessionToken : null;
+  const accountAtRequest = authenticated ? sessionAccountId : null;
   const headers = new Headers(init.headers);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   if (authenticated && sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
   const response = await fetch(`/api${path}`, { ...init, headers });
   const body: unknown = await response.json().catch(() => null);
+  if (authenticated && (sessionToken !== tokenAtRequest || sessionAccountId !== accountAtRequest)) {
+    throw new Error('Account changed while an API request was in progress.');
+  }
   if (!response.ok) {
     if (authenticated && response.status === 401) {
       sessionToken = null;
+      sessionAccountId = null;
       cloudRevision = null;
     }
     throw new ApiError(response.status, errorMessage(body, response.statusText));
@@ -246,7 +267,11 @@ function colregsReference(): Promise<ColregsAsset> {
 }
 
 async function readProgress(): Promise<StoredProgress> {
-  const progress = parseProgress(await request('/progress', {}, true));
+  const tokenAtStart = sessionToken;
+  if (!tokenAtStart) throw new Error('Sign in to use account services.');
+  const response = await request('/progress', {}, true);
+  if (sessionToken !== tokenAtStart) throw new Error('Account changed while progress was loading.');
+  const progress = parseProgress(response);
   cloudRevision = progress.revision;
   return progress;
 }
@@ -258,8 +283,13 @@ function sessionRequest(input: AccountInput | Credentials): RequestInit {
 function acceptSession(value: unknown): PublicAccount {
   const result = parseSession(value);
   sessionToken = result.session;
+  sessionAccountId = result.accountId;
   cloudRevision = null;
   return result.user;
+}
+
+export function getAuthenticatedAccountId(): string | null {
+  return sessionAccountId;
 }
 
 export const liveClient: ApiClient = {
@@ -275,6 +305,7 @@ export const liveClient: ApiClient = {
   },
   async logout() {
     sessionToken = null;
+    sessionAccountId = null;
     cloudRevision = null;
   },
   async getStudySnapshot(): Promise<StudySnapshot> {
@@ -322,15 +353,19 @@ export const liveClient: ApiClient = {
     })).filter((rule) => !normalized || `${rule.ruleNumber} ${rule.title} ${rule.summary} ${rule.keywords.join(' ')}`.toLowerCase().includes(normalized));
   },
   async getProgress(): Promise<ProgressSnapshot> {
-    const { topicMastery, weakSpotLog, drillQueue } = await readProgress();
-    return { topicMastery, weakSpotLog, drillQueue };
+    const { topicMastery, weakSpotLog, drillQueue, ruleExerciseAttempts } = await readProgress();
+    return { topicMastery, weakSpotLog, drillQueue, ruleExerciseAttempts };
   },
   async syncProgress(snapshot: ProgressSnapshot, revision?: number): Promise<ProgressSyncResponse> {
+    const tokenAtStart = sessionToken;
+    if (!tokenAtStart) throw new Error('Sign in to use account services.');
     const expectedRevision = revision ?? cloudRevision ?? (await readProgress()).revision;
+    if (sessionToken !== tokenAtStart) throw new Error('Account changed while progress was synchronizing.');
     const result = object(await request('/progress', {
       method: 'PUT',
       body: JSON.stringify({ ...snapshot, revision: expectedRevision }),
     }, true), 'progress sync response');
+    if (sessionToken !== tokenAtStart) throw new Error('Account changed while progress was synchronizing.');
     const syncedAt = text(result['syncedAt'], 'sync timestamp');
     const nextRevision = finiteNumber(result['revision'], 'progress revision');
     cloudRevision = nextRevision;

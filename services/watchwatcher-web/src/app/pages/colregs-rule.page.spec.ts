@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
 import type { ColregsRule } from '../domain-types';
 import { ColregsReferenceService } from '../core/services/colregs-reference.service';
+import { StudentMemoryService } from '../core/student-memory.service';
 import { ColregsRulePage } from './colregs-rule.page';
 
 const practiceRule: ColregsRule = {
@@ -28,13 +29,20 @@ const practiceRule: ColregsRule = {
   keywords: ['application', 'waters'],
 };
 
+const recordAttempt = vi.fn(async () => ({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] }));
+
 describe('ColregsRulePage practice exercise', () => {
   beforeEach(async () => {
+    recordAttempt.mockClear();
     await TestBed.configureTestingModule({
       imports: [ColregsRulePage],
       providers: [
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ ruleId: 'rule-1' })) } },
         { provide: ColregsReferenceService, useValue: { search: async () => [practiceRule] } },
+        { provide: StudentMemoryService, useValue: {
+          loadProgress: async () => ({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] }),
+          recordRuleExerciseAttempt: recordAttempt,
+        } },
       ],
     }).compileComponents();
   });
@@ -58,16 +66,20 @@ describe('ColregsRulePage practice exercise', () => {
     incorrectOption.click();
     fixture.detectChanges();
     checkButton.click();
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(host.querySelector('.exercise-feedback')?.textContent).toContain('Correct answer: Check the applicable Rules and valid local requirements.');
     expect(host.querySelector('.exercise-feedback')?.textContent).toContain(practiceRule.exercise.remediation);
+    expect(recordAttempt).toHaveBeenNthCalledWith(1, 'rule-1', 'a', 'b');
 
     const correctOption = host.querySelector('input[value="b"]') as HTMLInputElement;
     correctOption.click();
     fixture.detectChanges();
     checkButton.click();
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(host.querySelector('.exercise-feedback')?.classList.contains('correct')).toBe(true);
     expect(host.querySelector('.exercise-feedback')?.textContent).toContain(practiceRule.exercise.explanation);
+    expect(recordAttempt).toHaveBeenNthCalledWith(2, 'rule-1', 'b', 'b');
   });
 });

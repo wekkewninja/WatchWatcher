@@ -17,6 +17,13 @@ export const progressSnapshotSchema = z.object({
     timestamp: z.string().datetime(),
   }).strict()).max(10000),
   drillQueue: z.array(z.string().min(1).max(120)).max(10000),
+  ruleExerciseAttempts: z.array(z.object({
+    id: z.string().uuid(),
+    ruleId: z.string().regex(/^(rule-(?:[1-9]|[1-3][0-9]|4[01])|annex-(?:i|ii|iii|iv))$/),
+    selectedOptionId: z.string().regex(/^[a-d]$/),
+    correct: z.boolean(),
+    attemptedAt: z.string().datetime(),
+  }).strict()).max(10000).default([]),
 }).strict();
 
 export const progressSyncSchema = progressSnapshotSchema.extend({

@@ -36,10 +36,11 @@ export class PostgresDatabaseService implements IDatabaseService {
       topic_mastery: ProgressSnapshot['topicMastery'];
       weak_spot_log: ProgressSnapshot['weakSpotLog'];
       drill_queue: ProgressSnapshot['drillQueue'];
+      rule_exercise_attempts: ProgressSnapshot['ruleExerciseAttempts'];
       revision: number;
       synced_at: Date;
     }>(
-      'SELECT topic_mastery, weak_spot_log, drill_queue, revision, synced_at FROM progress_snapshots WHERE account_id = $1',
+      'SELECT topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, revision, synced_at FROM progress_snapshots WHERE account_id = $1',
       [accountId],
     );
     const row = result.rows[0];
@@ -49,6 +50,7 @@ export class PostgresDatabaseService implements IDatabaseService {
       topicMastery: row.topic_mastery,
       weakSpotLog: row.weak_spot_log,
       drillQueue: row.drill_queue,
+      ruleExerciseAttempts: row.rule_exercise_attempts,
       revision: row.revision,
       syncedAt: row.synced_at.toISOString(),
     };
@@ -56,17 +58,18 @@ export class PostgresDatabaseService implements IDatabaseService {
 
   async saveProgress(accountId: string, snapshot: ProgressSnapshot, expectedRevision: number): Promise<{ syncedAt: string; revision: number }> {
     const result = await this.getPool().query<{ revision: number; synced_at: Date }>(
-      `INSERT INTO progress_snapshots (account_id, topic_mastery, weak_spot_log, drill_queue, revision, synced_at)
-       SELECT $1, $2::jsonb, $3::jsonb, $4::jsonb, 1, NOW() WHERE $5 = 0
+      `INSERT INTO progress_snapshots (account_id, topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, revision, synced_at)
+       SELECT $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, 1, NOW() WHERE $6 = 0
        ON CONFLICT (account_id) DO UPDATE SET
          topic_mastery = EXCLUDED.topic_mastery,
          weak_spot_log = EXCLUDED.weak_spot_log,
          drill_queue = EXCLUDED.drill_queue,
+         rule_exercise_attempts = EXCLUDED.rule_exercise_attempts,
          revision = progress_snapshots.revision + 1,
          synced_at = NOW()
-       WHERE progress_snapshots.revision = $5
+       WHERE progress_snapshots.revision = $6
        RETURNING revision, synced_at`,
-      [accountId, JSON.stringify(snapshot.topicMastery), JSON.stringify(snapshot.weakSpotLog), JSON.stringify(snapshot.drillQueue), expectedRevision],
+      [accountId, JSON.stringify(snapshot.topicMastery), JSON.stringify(snapshot.weakSpotLog), JSON.stringify(snapshot.drillQueue), JSON.stringify(snapshot.ruleExerciseAttempts), expectedRevision],
     );
     const updated = result.rows[0];
     if (!updated) throw new ConflictError('Progress changed on the server. Reload before syncing again.');

@@ -8,6 +8,41 @@ const specification = {
   servers: [{ url: '/api' }],
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+    schemas: {
+      RuleExerciseAttempt: {
+        type: 'object',
+        required: ['id', 'ruleId', 'selectedOptionId', 'correct', 'attemptedAt'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          ruleId: { type: 'string', pattern: '^(rule-(?:[1-9]|[1-3][0-9]|4[01])|annex-(?:i|ii|iii|iv))$' },
+          selectedOptionId: { type: 'string', enum: ['a', 'b', 'c', 'd'] },
+          correct: { type: 'boolean' },
+          attemptedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ProgressSnapshot: {
+        type: 'object',
+        required: ['topicMastery', 'weakSpotLog', 'drillQueue', 'ruleExerciseAttempts'],
+        properties: {
+          topicMastery: { type: 'object', additionalProperties: { type: 'number', minimum: 0, maximum: 100 } },
+          weakSpotLog: { type: 'array', items: { type: 'object', required: ['topicId', 'tag', 'timestamp'], properties: { topicId: { type: 'string' }, tag: { type: 'string' }, timestamp: { type: 'string', format: 'date-time' } } } },
+          drillQueue: { type: 'array', items: { type: 'string' } },
+          ruleExerciseAttempts: { type: 'array', maxItems: 10000, items: { $ref: '#/components/schemas/RuleExerciseAttempt' } },
+        },
+      },
+      ProgressSyncRequest: {
+        allOf: [
+          { $ref: '#/components/schemas/ProgressSnapshot' },
+          { type: 'object', required: ['revision'], properties: { revision: { type: 'integer', minimum: 0 } } },
+        ],
+      },
+      StoredProgress: {
+        allOf: [
+          { $ref: '#/components/schemas/ProgressSnapshot' },
+          { type: 'object', required: ['accountId', 'revision', 'syncedAt'], properties: { accountId: { type: 'string', format: 'uuid' }, revision: { type: 'integer', minimum: 0 }, syncedAt: { type: 'string', format: 'date-time', nullable: true } } },
+        ],
+      },
+    },
   },
   paths: {
     '/health': { get: { summary: 'API and optional service health', responses: { '200': { description: 'Healthy or degraded' }, '503': { description: 'Unavailable' } } } },
@@ -16,8 +51,13 @@ const specification = {
     '/auth/session': { post: { summary: 'Start a session for account features', responses: { '200': { description: 'Session created' } } } },
     '/auth/me': { get: { summary: 'Read the signed-in user', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Current user' } } } },
     '/progress': {
-      get: { summary: 'Read account progress', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Progress snapshot' } } },
-      put: { summary: 'Synchronize account progress', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Revision saved' }, '409': { description: 'Stale revision' } } },
+      get: { summary: 'Read progress for the authenticated account', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Account progress snapshot', content: { 'application/json': { schema: { $ref: '#/components/schemas/StoredProgress' } } } } } },
+      put: {
+        summary: 'Synchronize progress for the authenticated account using an optimistic revision',
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ProgressSyncRequest' } } } },
+        responses: { '200': { description: 'Revision saved' }, '409': { description: 'Stale revision' } },
+      },
     },
     '/exam/evaluate': { post: { summary: 'Evaluate a study answer', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Structured evaluation' } } } },
   },

@@ -9,19 +9,20 @@ Offline-first RYA Yachtmaster and ASA 105/106/108 study, visual training, and op
 - `services/shared`: shared API types and Zod request schemas.
 - `services/watchwatcher-web/public/assets`: bundled syllabus and COLREGs reference data cached by the service worker.
 
-Study and deterministic grading work locally. Progress is stored in IndexedDB. Sign-in, PostgreSQL synchronization, and Gemini grading are optional online enhancements; credentials remain on the API.
+Study and deterministic grading work locally. IndexedDB progress is namespaced by signed-in account; rule exercise attempts are stored as uniquely identified events and merged idempotently with the account's PostgreSQL snapshot. Legacy shared-device progress is isolated in a guest namespace rather than assigned to whichever user signs in next. Sign-in, cloud synchronization, and Gemini grading are optional online enhancements; credentials remain on the API.
 
 ## Local setup
 
 1. Install Node.js, npm, Azure Functions Core Tools v4, and Docker Compose.
 2. Copy `.env.example` to `.env`. The development-only PostgreSQL defaults match `local.settings.json`; if you change the password, update its `DATABASE_URL` too. `local.settings.json` is ignored by Git.
-3. Start local PostgreSQL and Azurite: `docker compose up -d`.
-4. Install workspace packages: `npm install`.
-5. Build both services: `npm run build`.
-6. Run the PWA: `npm --workspace services/watchwatcher-web start`.
-7. Run the API in a second terminal: `npm --workspace services/watchwatcher-api start`.
+3. Install workspace packages: `npm install`.
+4. Start local PostgreSQL and Azurite: `docker compose up -d postgres azurite`.
+5. Apply the API schema migration: `docker compose run --rm db-migrate`.
+6. Build both services: `npm run build`.
+7. Run the PWA: `npm --workspace services/watchwatcher-web start`.
+8. Run the API in a second terminal: `npm --workspace services/watchwatcher-api start`.
 
-The API is served at `http://localhost:7071/api`; the Angular development server proxies `/api` to Functions. Database schema migrations are intentionally left for the integration step; do not insert seed data.
+The API is served at `http://localhost:7071/api`; the Angular development server proxies `/api` to Functions. Migrations create schema only and do not insert seed data.
 
 ## Verification
 
