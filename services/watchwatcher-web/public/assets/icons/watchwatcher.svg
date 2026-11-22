@@ -1,5 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="8" fill="#146c67"/>
-  <path d="M31 10v35M34 14l17 20H34" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
-  <path d="M10 48c7 5 15 5 22 0 7 5 15 5 22 0" fill="none" stroke="#e9a18f" stroke-linecap="round" stroke-width="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 768" role="img" aria-labelledby="title desc">
+  <title id="title">WatchWatcher compass eye</title>
+  <desc id="desc">A nautical compass surrounds a centered watchful eye.</desc>
+  <defs>
+    <path id="north-point" d="M384 32 399 112 369 112Z"/>
+    <path id="tick" d="M384 91v24"/>
+    <path id="dot" d="M384 73a7 7 0 1 0 0 14 7 7 0 1 0 0-14Z"/>
+  </defs>
+  <rect width="768" height="768" rx="76" fill="#0b1c34"/>
+  <g fill="none" stroke="#d6a142" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="384" cy="384" r="294" stroke-width="10"/>
+    <circle cx="384" cy="384" r="266" stroke-width="3"/>
+    <g stroke-width="8">
+      <use href="#tick"/>
+      <use href="#tick" transform="rotate(15 384 384)"/>
+      <use href="#tick" transform="rotate(30 384 384)"/>
+      <use href="#tick" transform="rotate(45 384 384)"/>
+      <use href="#tick" transform="rotate(60 384 384)"/>
+      <use href="#tick" transform="rotate(75 384 384)"/>
+      <use href="#tick" transform="rotate(90 384 384)"/>
+      <use href="#tick" transform="rotate(105 384 384)"/>
+      <use href="#tick" transform="rotate(120 384 384)"/>
+      <use href="#tick" transform="rotate(135 384 384)"/>
+      <use href="#tick" transform="rotate(150 384 384)"/>
+      <use href="#tick" transform="rotate(165 384 384)"/>
+      <use href="#tick" transform="rotate(180 384 384)"/>
+      <use href="#tick" transform="rotate(195 384 384)"/>
+      <use href="#tick" transform="rotate(210 384 384)"/>
+      <use href="#tick" transform="rotate(225 384 384)"/>
+      <use href="#tick" transform="rotate(240 384 384)"/>
+      <use href="#tick" transform="rotate(255 384 384)"/>
+      <use href="#tick" transform="rotate(270 384 384)"/>
+      <use href="#tick" transform="rotate(285 384 384)"/>
+      <use href="#tick" transform="rotate(300 384 384)"/>
+      <use href="#tick" transform="rotate(315 384 384)"/>
+      <use href="#tick" transform="rotate(330 384 384)"/>
+      <use href="#tick" transform="rotate(345 384 384)"/>
+    </g>
+    <use href="#north-point" stroke-width="7"/>
+    <use href="#north-point" transform="rotate(90 384 384)" stroke-width="7"/>
+    <use href="#north-point" transform="rotate(180 384 384)" stroke-width="7"/>
+    <use href="#north-point" transform="rotate(270 384 384)" stroke-width="7"/>
+    <path d="M384 151a233 233 0 0 0-202 350" stroke="#ff3737" stroke-width="40"/>
+    <path d="M384 151a233 233 0 0 1 202 350" stroke="#38b35f" stroke-width="40"/>
+    <path d="M182 501a233 233 0 0 0 404 0" stroke="#ffc400" stroke-width="40"/>
+    <path d="M190 384c52-72 122-98 194-98s142 26 194 98c-52 72-122 98-194 98s-142-26-194-98Z" stroke-width="10"/>
+    <circle cx="384" cy="384" r="101" stroke-width="9"/>
+    <path d="M384 239v125M384 404v125M225 384h125M418 384h125" stroke-width="10"/>
+    <circle cx="384" cy="384" r="34" stroke="#f8fafc" stroke-width="9"/>
+    <g stroke-width="5">
+      <use href="#dot"/>
+      <use href="#dot" transform="rotate(45 384 384)"/>
+      <use href="#dot" transform="rotate(90 384 384)"/>
+      <use href="#dot" transform="rotate(135 384 384)"/>
+      <use href="#dot" transform="rotate(180 384 384)"/>
+      <use href="#dot" transform="rotate(225 384 384)"/>
+      <use href="#dot" transform="rotate(270 384 384)"/>
+      <use href="#dot" transform="rotate(315 384 384)"/>
+    </g>
+  </g>
 </svg>
