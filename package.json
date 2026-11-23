@@ -10,6 +10,8 @@
     "test": "npm test --workspace services/watchwatcher-web && npm test --workspace services/watchwatcher-api && npm run test:icons",
     "test:web": "npm test --workspace services/watchwatcher-web",
     "test:api": "npm test --workspace services/watchwatcher-api",
+    "test:coverage": "npm test --workspace services/watchwatcher-web -- --coverage && npm test --workspace services/watchwatcher-api -- --coverage && node scripts/check-coverage.mjs",
+    "test:coverage-gate": "node --test scripts/check-coverage.test.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "test:icons": "node scripts/test-icons.mjs",
     "colregs:import": "node services/watchwatcher-web/scripts/import-colregs-official-text.mjs",
