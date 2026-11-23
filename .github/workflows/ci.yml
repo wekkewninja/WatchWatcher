@@ -15,11 +15,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install
+      - run: npm ci
       - name: Install Linux Sass Embedded compiler
         run: |
           sass_version=$(node -p "require('./package-lock.json').packages['services/watchwatcher-web/node_modules/sass-embedded'].version")
           npm install --no-save --package-lock=false --workspace services/watchwatcher-web "sass-embedded-linux-x64@${sass_version}"
       - run: npm run build
-      - run: npm test --workspace services/watchwatcher-web
-      - run: npm test --workspace services/watchwatcher-api
+      - run: npm run test:coverage-gate
+      - run: npm run test:coverage
+      - run: npm run test:icons
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Report all dependency findings
+        if: always()
+        continue-on-error: true
+        run: npm audit
