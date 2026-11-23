@@ -45,6 +45,7 @@ const bank: AssessmentBank = {
 
 describe('AssessmentExamPage', () => {
   beforeEach(async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
     await TestBed.configureTestingModule({
       imports: [AssessmentExamPage],
       providers: [
@@ -54,7 +55,7 @@ describe('AssessmentExamPage', () => {
     }).compileComponents();
   });
 
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => { TestBed.resetTestingModule(); vi.restoreAllMocks(); });
 
   it('includes Critical questions and checks both choice and curriculum answers', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);

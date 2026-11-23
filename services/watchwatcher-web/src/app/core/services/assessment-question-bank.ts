@@ -74,12 +74,6 @@ const criticalRules = new Set([
 ]);
 
 const minorRules = new Set(['Rule 39', 'Rule 40', 'Rule 41', 'Annex I', 'Annex II', 'Annex III']);
-const criticalCurriculumTopics = new Set([
-  'colregs_steering_rules', 'colregs_rule_19d', 'colregs_lights_shapes',
-  'tides_heights_clearance', 'tides_diamonds_cts', 'met_local_fog',
-  'plan_tidal_gates_bars', 'emerg_mob_heavy_weather', 'emerg_anchoring_distress',
-]);
-
 const priorityRationale: Record<AssessmentPriority, string> = {
   critical: 'Immediate collision-avoidance, emergency, or grounding-prevention knowledge.',
   major: 'Frequently applied Yachtmaster knowledge and core syllabus competence.',
@@ -432,7 +426,13 @@ export function selectExamQuestions(questions: AssessmentQuestion[], random: () 
     const swapIndex = index + Math.floor(randomValue * (shuffled.length - index));
     [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
-  return [...critical, ...shuffled.slice(0, sampleCount)];
+  const exam = [...critical, ...shuffled.slice(0, sampleCount)];
+  for (let index = exam.length - 1; index > 0; index -= 1) {
+    const randomValue = Math.min(0.999999999, Math.max(0, random()));
+    const swapIndex = Math.floor(randomValue * (index + 1));
+    [exam[index], exam[swapIndex]] = [exam[swapIndex], exam[index]];
+  }
+  return exam;
 }
 
 export function gradeShortAnswer(question: ShortAnswerAssessmentQuestion, answer: string): { correct: boolean; matched: string[]; required: number; forbiddenFound: string[] } {

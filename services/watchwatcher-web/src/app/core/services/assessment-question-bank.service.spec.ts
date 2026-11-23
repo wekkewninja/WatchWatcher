@@ -106,7 +106,7 @@ describe('Assessment question bank', () => {
     const exam = selectExamQuestions(bank.questions, () => 0, 5);
     const selectedIds = exam.map((question) => question.id);
 
-    expect(exam.filter((question) => question.priority === 'critical').map((question) => question.id)).toEqual(criticalIds);
+    expect(new Set(exam.filter((question) => question.priority === 'critical').map((question) => question.id))).toEqual(new Set(criticalIds));
     expect(exam.filter((question) => question.priority !== 'critical')).toHaveLength(5);
     expect(new Set(selectedIds).size).toBe(selectedIds.length);
     expect(selectExamQuestions(bank.questions, () => 0, 5).map((question) => question.id)).toEqual(selectedIds);
