@@ -2,6 +2,10 @@
   "name": "watchwatcher",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "^22.22.3 || ^26.0.0",
+    "npm": ">=10 <12"
+  },
   "workspaces": ["services/watchwatcher-web", "services/watchwatcher-api"],
   "scripts": {
     "build": "npm run build --workspace services/watchwatcher-web && npm run build --workspace services/watchwatcher-api",
