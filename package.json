@@ -12,6 +12,7 @@
     "test:api": "npm test --workspace services/watchwatcher-api",
     "icons:generate": "node scripts/generate-icons.mjs",
     "test:icons": "node scripts/test-icons.mjs",
+    "colregs:import": "node services/watchwatcher-web/scripts/import-colregs-official-text.mjs",
     "emulators:start": "docker compose up -d postgres azurite",
     "emulators:stop": "docker compose down"
   },

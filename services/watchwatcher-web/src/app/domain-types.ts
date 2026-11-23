@@ -41,6 +41,13 @@ export interface ColregsRule {
   title: string;
   category: string;
   summary: string;
+  officialText?: {
+    sourceUrl: string;
+    sourceUpdatedOn: string;
+    checkedOn: string;
+    international: string[];
+    inland?: string[];
+  };
   memoryHook?: string;
   asaInlandNote?: string;
   keyPoints: string[];

@@ -43,11 +43,24 @@ interface ColregsAsset {
   }>;
 }
 
+interface ColregsOfficialTextAsset {
+  source_url: string;
+  source_updated_on: string;
+  checked_on: string;
+  rules: Array<{
+    rule_number: string;
+    source_fragment: string;
+    international: string[];
+    inland?: string[];
+  }>;
+}
+
 let sessionToken: string | null = null;
 let sessionAccountId: string | null = null;
 let cloudRevision: number | null = null;
 let curriculumPromise: Promise<CurriculumAsset> | null = null;
 let colregsPromise: Promise<ColregsAsset> | null = null;
+let colregsOfficialTextPromise: Promise<ColregsOfficialTextAsset> | null = null;
 
 class ApiError extends Error {
   constructor(readonly status: number, message: string, readonly code?: string, readonly details?: unknown) {
@@ -259,6 +272,33 @@ function parseColregs(value: unknown): ColregsAsset {
   };
 }
 
+function parseColregsOfficialText(value: unknown): ColregsOfficialTextAsset {
+  const root = object(value, 'official COLREGs text');
+  const rules = array(root['rules'], 'official COLREGs rules').map((ruleValue) => {
+    const rule = object(ruleValue, 'official COLREGs rule');
+    const inlandValue = rule['inland'];
+    const paragraphs = (value: unknown, label: string) => array(value, label).map((paragraph) => text(paragraph, label));
+    const international = paragraphs(rule['international'], 'International rule paragraphs');
+    if (!international.length) throw new Error('Bundled official COLREGs rule has no International wording.');
+    const inland = inlandValue === undefined ? undefined : paragraphs(inlandValue, 'Inland rule paragraphs');
+    return {
+      rule_number: text(rule['rule_number'], 'official COLREGs rule number'),
+      source_fragment: text(rule['source_fragment'], 'official COLREGs source fragment'),
+      international,
+      inland,
+    };
+  });
+  if (rules.length !== 41 || rules.some((rule, index) => rule.rule_number !== `Rule ${index + 1}`)) {
+    throw new Error('Bundled official COLREGs text must include Rules 1–41 in order.');
+  }
+  return {
+    source_url: text(root['source_url'], 'official COLREGs source URL'),
+    source_updated_on: text(root['source_updated_on'], 'official COLREGs source update date'),
+    checked_on: text(root['checked_on'], 'official COLREGs check date'),
+    rules,
+  };
+}
+
 function curriculum(): Promise<CurriculumAsset> {
   curriculumPromise ??= loadAsset('assets/syllabus/curriculum_seed.json', parseCurriculum);
   return curriculumPromise;
@@ -267,6 +307,11 @@ function curriculum(): Promise<CurriculumAsset> {
 function colregsReference(): Promise<ColregsAsset> {
   colregsPromise ??= loadAsset('assets/reference/colregs_catalog.json', parseColregs);
   return colregsPromise;
+}
+
+function colregsOfficialText(): Promise<ColregsOfficialTextAsset> {
+  colregsOfficialTextPromise ??= loadAsset('assets/reference/colregs_official_text.json', parseColregsOfficialText);
+  return colregsOfficialTextPromise;
 }
 
 async function readProgress(): Promise<StoredProgress> {
@@ -366,20 +411,36 @@ export const liveClient: ApiClient = {
     }));
   },
   async searchColregs(query: string): Promise<ColregsRule[]> {
-    const content = await colregsReference();
+    const [content, officialText] = await Promise.all([colregsReference(), colregsOfficialText()]);
     const normalized = query.trim().toLowerCase();
-    return content.rules.map((rule) => ({
-      id: rule.rule_number.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-      ruleNumber: rule.rule_number,
-      title: rule.title,
-      category: rule.category,
-      summary: rule.summary,
-      memoryHook: rule.memory_hook,
-      asaInlandNote: rule.asa_inland_note,
-      keyPoints: rule.key_points,
-      exercise: rule.exercise,
-      keywords: `${rule.title} ${rule.summary} ${rule.memory_hook} ${rule.asa_inland_note} ${rule.key_points.join(' ')} ${rule.exercise.prompt} ${rule.exercise.options.map((option) => option.text).join(' ')}`.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
-    })).filter((rule) => !normalized || `${rule.ruleNumber} ${rule.title} ${rule.summary} ${rule.keywords.join(' ')}`.toLowerCase().includes(normalized));
+    const officialTextByRule = new Map(officialText.rules.map((rule) => [rule.rule_number, rule]));
+    return content.rules.map((rule) => {
+      const ruleText = officialTextByRule.get(rule.rule_number);
+      const officialTextForRule = ruleText ? {
+        sourceUrl: `${officialText.source_url}#${encodeURIComponent(ruleText.source_fragment)}`,
+        sourceUpdatedOn: officialText.source_updated_on,
+        checkedOn: officialText.checked_on,
+        international: ruleText.international,
+        inland: ruleText.inland,
+      } : undefined;
+      const officialWords = officialTextForRule
+        ? `${officialTextForRule.international.join(' ')} ${officialTextForRule.inland?.join(' ') ?? ''}`
+        : '';
+      const keywords = `${rule.title} ${rule.summary} ${rule.memory_hook} ${rule.asa_inland_note} ${rule.key_points.join(' ')} ${rule.exercise.prompt} ${rule.exercise.options.map((option) => option.text).join(' ')} ${officialWords}`.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      return {
+        id: rule.rule_number.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        ruleNumber: rule.rule_number,
+        title: rule.title,
+        category: rule.category,
+        summary: rule.summary,
+        officialText: officialTextForRule,
+        memoryHook: rule.memory_hook,
+        asaInlandNote: rule.asa_inland_note,
+        keyPoints: rule.key_points,
+        exercise: rule.exercise,
+        keywords,
+      };
+    }).filter((rule) => !normalized || `${rule.ruleNumber} ${rule.title} ${rule.summary} ${rule.keywords.join(' ')}`.toLowerCase().includes(normalized));
   },
   async getProgress(): Promise<ProgressSnapshot> {
     const { topicMastery, weakSpotLog, drillQueue, ruleExerciseAttempts } = await readProgress();
