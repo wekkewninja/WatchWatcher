@@ -2,9 +2,9 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../api';
 import type { AuthStateService } from './auth-state.service';
-import { mergeProgressSnapshots, selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise } from './student-memory.service';
+import { emptyProgressSnapshot, mergeProgressSnapshots, selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise } from './student-memory.service';
 import { StorageRepository } from './storage-repository.service';
-import type { ColregsRule, ProgressSnapshot } from '../domain-types';
+import type { ColregsRule, EvaluationResult, ProgressSnapshot } from '../domain-types';
 
 function rule(id: string, ruleNumber: string): ColregsRule {
   return {
@@ -98,6 +98,104 @@ describe('StudentMemoryService rule exercise progress', () => {
 
     expect(merged.ruleExerciseAttempts).toHaveLength(2);
     expect(summarizeRuleExercise('rule-5', merged)).toMatchObject({ attempts: 2, correctAttempts: 1, completed: true, mastery: 50 });
+  });
+
+  it('merges mastery conservatively, deduplicates weak spots and queue entries, and sorts events', () => {
+    const local: ProgressSnapshot = {
+      topicMastery: { local: 40, shared: 70 },
+      weakSpotLog: [{ topicId: 'local', tag: 'late', timestamp: '2026-11-22T12:00:00.000Z' }],
+      drillQueue: ['local', 'shared'],
+      ruleExerciseAttempts: [{ id: 'later', ruleId: 'rule-5', selectedOptionId: 'a', correct: false, attemptedAt: '2026-11-22T12:00:00.000Z' }],
+    };
+    const remote: ProgressSnapshot = {
+      topicMastery: { remote: 55, shared: 60 },
+      weakSpotLog: [
+        { topicId: 'local', tag: 'late', timestamp: '2026-11-22T12:00:00.000Z' },
+        { topicId: 'remote', tag: 'early', timestamp: '2026-11-21T12:00:00.000Z' },
+      ],
+      drillQueue: ['shared', 'remote'],
+      ruleExerciseAttempts: [{ id: 'earlier', ruleId: 'rule-19', selectedOptionId: 'b', correct: true, attemptedAt: '2026-11-20T12:00:00.000Z' }],
+    };
+
+    expect(mergeProgressSnapshots(local, remote)).toEqual({
+      topicMastery: { local: 40, remote: 55, shared: 70 },
+      weakSpotLog: [remote.weakSpotLog[1], local.weakSpotLog[0]],
+      drillQueue: ['local', 'shared', 'remote'],
+      ruleExerciseAttempts: [remote.ruleExerciseAttempts[0], local.ruleExerciseAttempts[0]],
+    });
+  });
+
+  it('returns an empty exercise summary when no attempts exist', () => {
+    expect(summarizeRuleExercise('rule-1', emptyProgressSnapshot())).toEqual({
+      attempts: 0,
+      correctAttempts: 0,
+      completed: false,
+      mastery: 0,
+      lastAttemptAt: null,
+    });
+  });
+
+  it('updates topic mastery and adds misconception remediation to progress', async () => {
+    const account = memoryFor('account-a');
+    const initial: ProgressSnapshot = { ...emptyProgressSnapshot(), topicMastery: { topic: 50 }, drillQueue: ['existing'] };
+    await new StorageRepository().saveProgress('account-a', initial);
+    const evaluation: EvaluationResult = {
+      score: 0.8,
+      feedback: 'Review the response.',
+      misconceptionTag: 'rule-confusion',
+      followUpDrill: 'Review Rule 1.',
+      source: 'offline',
+      passed: true,
+    };
+
+    await account.recordEvaluation('topic', evaluation, 20);
+    const updated = await account.loadProgress();
+    expect(updated?.topicMastery['topic']).toBe(59);
+    expect(updated?.weakSpotLog[0]).toMatchObject({ topicId: 'topic', tag: 'rule-confusion' });
+    expect(updated?.drillQueue).toEqual(['topic', 'existing']);
+  });
+
+  it('records an evaluation without creating a weak spot when there is no misconception', async () => {
+    const account = memoryFor('account-a');
+    await account.recordEvaluation('new-topic', {
+      score: 0.5,
+      feedback: 'Keep practicing.',
+      misconceptionTag: null,
+      followUpDrill: 'Continue.',
+      source: 'offline',
+      passed: false,
+    }, 20);
+    expect(await account.loadProgress()).toMatchObject({ topicMastery: { 'new-topic': 29 }, weakSpotLog: [], drillQueue: [] });
+  });
+
+  it('loads local progress when cloud access is unavailable and rejects sync without a matching account', async () => {
+    const account = memoryFor('account-a');
+    const saved: ProgressSnapshot = { ...emptyProgressSnapshot(), topicMastery: { offline: 65 } };
+    await new StorageRepository().saveProgress('account-a', saved);
+
+    await expect(account.loadAndMergeCloudProgress()).resolves.toEqual(saved);
+    await expect(memoryFor('guest').syncProgress()).rejects.toThrow('Sign in to synchronize');
+  });
+
+  it('merges cloud and local progress, then syncs local-only records', async () => {
+    const account = memoryFor('account-a');
+    await new StorageRepository().saveProgress('account-a', {
+      ...emptyProgressSnapshot(),
+      topicMastery: { local: 75 },
+      drillQueue: ['local'],
+    });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId: 'account-a', session: 'test-token', user: { id: 'account-a', name: 'Student', email: 'student@example.test' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId: 'account-a', topicMastery: { remote: 40 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], revision: 1, syncedAt: null }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId: 'account-a', revision: 2, syncedAt: '2026-11-23T12:00:00.000Z' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await api.login({ email: 'student@example.test', password: 'a-valid-password' });
+
+    await expect(account.loadAndMergeCloudProgress()).resolves.toMatchObject({
+      topicMastery: { local: 75, remote: 40 },
+      drillQueue: ['local'],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('does not lose simultaneous attempt writes in the same account', async () => {

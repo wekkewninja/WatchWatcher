@@ -48,4 +48,52 @@ describe('StudyDeskPage personalized activity', () => {
     expect(hero.textContent).toContain('Start exercise');
     expect(hero.textContent).not.toContain('Resume Rule 19');
   });
+
+  it('calculates topic readiness, average mastery, pass counts, and known weak spots', async () => {
+    vi.mocked(api.getStudySnapshot).mockResolvedValueOnce({
+      topics: [
+        { id: 'ready', title: 'Ready', moduleId: 'nav', moduleTitle: 'Navigation', summary: 'Pass', mastery: 0, passThreshold: 80, state: 'remediation' },
+        { id: 'retry', title: 'Retry', moduleId: 'nav', moduleTitle: 'Navigation', summary: 'Retry', mastery: 0, passThreshold: 80, state: 'remediation' },
+        { id: 'new', title: 'New', moduleId: 'nav', moduleTitle: 'Navigation', summary: 'Start', mastery: 0, passThreshold: 80, state: 'remediation' },
+      ], averageMastery: 0, atThreshold: 0, weakSpots: 0,
+    });
+    const memory = {
+      loadAndMergeCloudProgress: async () => ({
+        topicMastery: { ready: 80, retry: 40 },
+        weakSpotLog: [
+          { topicId: 'retry', tag: 'review', timestamp: '2026-11-22T12:00:00.000Z' },
+          { topicId: 'unknown', tag: 'ignore', timestamp: '2026-11-22T12:00:00.000Z' },
+        ],
+        drillQueue: [], ruleExerciseAttempts: [],
+      }),
+    } as unknown as StudentMemoryService;
+    const page = new StudyDeskPage(memory);
+
+    await page.load();
+
+    expect(page.snapshot()).toMatchObject({ averageMastery: 40, atThreshold: 1, weakSpots: 1 });
+    expect(page.snapshot()?.topics.map((topic) => topic.state)).toEqual(['ready', 'retry', 'remediation']);
+  });
+
+  it('shows a useful error when study loading fails', async () => {
+    vi.mocked(api.getStudySnapshot).mockRejectedValueOnce('offline');
+    const page = new StudyDeskPage({ loadAndMergeCloudProgress: async () => ({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] }) } as unknown as StudentMemoryService);
+
+    await page.load();
+
+    expect(page.error()).toBe('Try again in a moment.');
+    expect(page.loading()).toBe(false);
+  });
+
+  it('reports successful and failed progress sync without losing local progress', async () => {
+    const page = new StudyDeskPage({ syncProgress: async () => ({ syncedAt: '2026-11-22T12:00:00.000Z', revision: 1 }) } as unknown as StudentMemoryService);
+    await page.syncProgress();
+    expect(page.syncMessage()).toContain('Synced');
+    expect(page.syncing()).toBe(false);
+
+    const failedPage = new StudyDeskPage({ syncProgress: async () => { throw new Error('Offline'); } } as unknown as StudentMemoryService);
+    await failedPage.syncProgress();
+    expect(failedPage.syncMessage()).toBe('Offline Local progress is unchanged.');
+    expect(failedPage.syncing()).toBe(false);
+  });
 });

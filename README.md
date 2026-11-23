@@ -45,9 +45,11 @@ npm run test:icons
 npm audit --omit=dev --audit-level=high
 ```
 
-Stop any running development processes before `npm ci`; they can lock files in `node_modules`, particularly on Windows. The Angular and API coverage runs also execute their normal tests. `test:coverage-gate` checks the aggregator's threshold and fail-closed behavior; `test:coverage` generates the two reports and enforces at least 80% combined line coverage.
+Stop any running development processes before `npm ci`; they can lock files in `node_modules`, particularly on Windows. The Angular and API coverage runs also execute their normal tests. `test:coverage-gate` checks the aggregator's thresholds and fail-closed behavior; `test:coverage` generates the two reports and enforces at least 85% combined line coverage, at least 85% for noncritical source, and at least 90% across critical logic.
 
 Coverage includes every `.ts` source file under `services/watchwatcher-web/src`, `services/watchwatcher-api/src`, and `services/shared`, including files not imported by tests. It excludes declaration files and `.spec.ts`/`.test.ts` files; generated build output, configuration, fixtures, and non-TypeScript assets outside those source roots are not included. The API report covers shared source so it is counted once. The gate sums covered and total instrumentable lines, rather than averaging workspace percentages, and fails if a report or source-file entry is missing or malformed. Reports are written under each workspace's `coverage` directory.
+
+The 90% critical-logic subset is the browser API client, auth-state service, auth guard, local storage repository and learner progress/sync service; the API authentication, Google identity verification, evaluation and PostgreSQL services; and shared request validation and offline evaluation. The remaining included application source must also reach 85%. The gate reports the critical subset, the remaining source, and the combined result separately.
 
 The production dependency audit blocks High and Critical findings. Lower-severity and development-only findings are reported by a separate non-blocking audit; review them rather than assuming they are safe. An unavailable audit service also fails the required production audit. Investigate test, build, coverage, or audit failures locally and fix them before merging; do not lower the threshold or hide application code to pass.
 

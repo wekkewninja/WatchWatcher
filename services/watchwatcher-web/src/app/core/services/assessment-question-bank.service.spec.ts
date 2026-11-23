@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ColregsRule } from '../../domain-types';
+import { ColregsReferenceService } from './colregs-reference.service';
+import { AssessmentQuestionBankService } from './assessment-question-bank.service';
 import catalogAsset from '../../../../public/assets/reference/colregs_catalog.json';
 import curriculumAsset from '../../../../public/assets/syllabus/curriculum_seed.json';
 import { buildAssessmentBank, gradeShortAnswer, selectExamQuestions, type CurriculumAssessmentAsset } from './assessment-question-bank';
@@ -36,6 +38,8 @@ const questionsByCoverage = new Map<string, number>();
 for (const question of bank.questions) {
   for (const coverageId of question.coverageIds) questionsByCoverage.set(coverageId, (questionsByCoverage.get(coverageId) ?? 0) + 1);
 }
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('Assessment question bank', () => {
   it('covers every COLREGs key point, scenario exercise, and curriculum question', () => {
@@ -126,5 +130,26 @@ describe('Assessment question bank', () => {
     if (shortAnswer?.type !== 'short-answer') throw new Error('Expected a curriculum short-answer question.');
     expect(gradeShortAnswer(shortAnswer, `${shortAnswer.expectedKeywords.join(' ')} ${shortAnswer.explanation}`).correct).toBe(true);
     expect(gradeShortAnswer(shortAnswer, shortAnswer.forbiddenKeywords[0] ?? 'unrelated answer').correct).toBe(false);
+  });
+
+  it('loads and caches the bank from bundled curriculum and reference content', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(curriculum), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const reference = { search: vi.fn().mockResolvedValue(rules) };
+    const service = new AssessmentQuestionBankService(reference as unknown as ColregsReferenceService);
+    const first = service.loadBank();
+
+    expect(service.loadBank()).toBe(first);
+    await expect(first).resolves.toEqual(bank);
+    expect(reference.search).toHaveBeenCalledWith('');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('rejects when the bundled curriculum cannot be loaded', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status: 503 })));
+    const reference = { search: vi.fn().mockResolvedValue(rules) };
+    const service = new AssessmentQuestionBankService(reference as unknown as ColregsReferenceService);
+
+    await expect(service.loadBank()).rejects.toThrow('Bundled curriculum could not be loaded (503).');
   });
 });

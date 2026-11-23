@@ -12,10 +12,33 @@ const reportPaths = [
   'services/watchwatcher-web/coverage/watchwatcher-web/coverage-summary.json',
   'services/watchwatcher-api/coverage/coverage-summary.json',
 ];
+const criticalSourcePaths = [
+  'services/watchwatcher-web/src/api/client.ts',
+  'services/watchwatcher-web/src/app/core/auth-state.service.ts',
+  'services/watchwatcher-web/src/app/core/auth.guard.ts',
+  'services/watchwatcher-web/src/app/core/storage-repository.service.ts',
+  'services/watchwatcher-web/src/app/core/student-memory.service.ts',
+  'services/shared/evaluation/offline-evaluator.ts',
+  'services/shared/schemas/validation.ts',
+  'services/watchwatcher-api/src/services/authService.ts',
+  'services/watchwatcher-api/src/services/evaluationService.ts',
+  'services/watchwatcher-api/src/services/googleIdentityVerifier.ts',
+  'services/watchwatcher-api/src/services/postgresDatabase.ts',
+].map((filename) => path.join(root, filename));
 
-export function calculateCoverage(reports, requiredFiles, threshold = 80) {
-  if (!Array.isArray(reports) || reports.length !== 2 || !requiredFiles.length) {
+export function calculateCoverage(reports, requiredFiles, {
+  criticalFiles,
+  overallThreshold = 85,
+  otherThreshold = 85,
+  criticalThreshold = 90,
+} = {}) {
+  if (!Array.isArray(reports) || reports.length !== 2 || !requiredFiles.length || !criticalFiles?.length) {
     throw new Error('Both coverage reports and the source file list are required.');
+  }
+  for (const threshold of [overallThreshold, otherThreshold, criticalThreshold]) {
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+      throw new Error('Coverage thresholds must be between 0 and 100.');
+    }
   }
   const entries = new Map();
   for (const report of reports) {
@@ -41,17 +64,37 @@ export function calculateCoverage(reports, requiredFiles, threshold = 80) {
       throw new Error('Coverage report totals are missing or inconsistent.');
     }
   }
-  let total = 0;
-  let covered = 0;
-  for (const filename of requiredFiles) {
-    const normalized = path.resolve(filename);
-    const lines = entries.get(normalized);
-    if (!lines) throw new Error(`Source file missing from coverage reports: ${normalized}`);
-    total += lines.total;
-    covered += lines.covered;
+  const summarize = (files, label) => {
+    let total = 0;
+    let covered = 0;
+    for (const filename of files) {
+      const normalized = path.resolve(filename);
+      const lines = entries.get(normalized);
+      if (!lines) throw new Error(`${label} source file missing from coverage reports: ${normalized}`);
+      total += lines.total;
+      covered += lines.covered;
+    }
+    if (!total) throw new Error(`${label} coverage contains no instrumentable source lines.`);
+    return { covered, total, percentage: covered / total * 100 };
+  };
+  const required = requiredFiles.map((filename) => path.resolve(filename));
+  const critical = criticalFiles.map((filename) => path.resolve(filename));
+  if (new Set(required).size !== required.length || new Set(critical).size !== critical.length
+    || critical.some((filename) => !required.includes(filename))) {
+    throw new Error('Critical source files must be unique members of the required source list.');
   }
-  if (!total) throw new Error('Coverage reports contain no instrumentable source lines.');
-  return { covered, total, percentage: covered / total * 100, passed: covered / total * 100 >= threshold };
+  const otherFiles = required.filter((filename) => !critical.includes(filename));
+  const overall = summarize(required, 'Overall');
+  const criticalCoverage = summarize(critical, 'Critical');
+  const otherCoverage = summarize(otherFiles, 'Other');
+  return {
+    ...overall,
+    critical: criticalCoverage,
+    other: otherCoverage,
+    passed: overall.percentage >= overallThreshold
+      && otherCoverage.percentage >= otherThreshold
+      && criticalCoverage.percentage >= criticalThreshold,
+  };
 }
 
 async function sourceFiles(directory) {
@@ -68,8 +111,10 @@ async function sourceFiles(directory) {
 async function main() {
   const reports = await Promise.all(reportPaths.map(async (reportPath) => JSON.parse(await readFile(path.join(root, reportPath), 'utf8'))));
   const requiredFiles = (await Promise.all(sourceRoots.map((sourceRoot) => sourceFiles(path.join(root, sourceRoot))))).flat();
-  const result = calculateCoverage(reports, requiredFiles);
-  console.log(`Combined line coverage: ${result.covered}/${result.total} (${result.percentage.toFixed(2)}%); required: 80%.`);
+  const result = calculateCoverage(reports, requiredFiles, { criticalFiles: criticalSourcePaths });
+  console.log(`Combined line coverage: ${result.covered}/${result.total} (${result.percentage.toFixed(2)}%); required: 85%.`);
+  console.log(`Critical line coverage: ${result.critical.covered}/${result.critical.total} (${result.critical.percentage.toFixed(2)}%); required: 90%.`);
+  console.log(`Other source line coverage: ${result.other.covered}/${result.other.total} (${result.other.percentage.toFixed(2)}%); required: 85%.`);
   if (!result.passed) process.exitCode = 1;
 }
 
