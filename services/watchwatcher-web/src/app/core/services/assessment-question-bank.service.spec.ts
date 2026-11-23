@@ -132,6 +132,18 @@ describe('Assessment question bank', () => {
     expect(gradeShortAnswer(shortAnswer, shortAnswer.forbiddenKeywords[0] ?? 'unrelated answer').correct).toBe(false);
   });
 
+  it('grades the corrected compass conversion in the generated Exam bank', () => {
+    const compassQuestion = bank.questions.find((question) => question.id === 'compass-2');
+    expect(compassQuestion?.type).toBe('short-answer');
+    if (compassQuestion?.type !== 'short-answer') throw new Error('Expected compass-2 to be a short-answer Exam question.');
+
+    expect(compassQuestion.expectedKeywords).toContain('272');
+    expect(compassQuestion.forbiddenKeywords).toContain('266');
+    expect(compassQuestion.explanation).toContain('275°M - 3° = 272°C');
+    expect(gradeShortAnswer(compassQuestion, 'The course is 272 degrees compass.').correct).toBe(true);
+    expect(gradeShortAnswer(compassQuestion, 'The course is 266 degrees compass.').correct).toBe(false);
+  });
+
   it('loads and caches the bank from bundled curriculum and reference content', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(curriculum), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);

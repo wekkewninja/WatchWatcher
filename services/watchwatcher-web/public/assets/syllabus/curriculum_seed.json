@@ -51,7 +51,7 @@
           "visual_spec": { "type": "none", "params": {} },
           "questions": [
             { "id": "compass-1", "prompt": "Variation is 4°15′ W in 2020 and increases 10′ W annually. What is it in 2026?", "expected_keywords": ["5°15", "west"], "forbidden_keywords": ["3°15"], "correct_explanation": "Six years add 60 minutes west, giving 5°15′ W.", "deep_remediation": "Count elapsed years and apply the stated annual change in the same direction." },
-            { "id": "compass-2", "prompt": "Convert 270°T to compass with 5°W variation and 3°E deviation, ignoring leeway for this conversion step.", "expected_keywords": ["266", "compass"], "forbidden_keywords": ["280"], "correct_explanation": "Apply the chart's variation and vessel deviation with their stated directions: 270°T converts to 266°C.", "deep_remediation": "Write each conversion as a separate signed step and check the add-west/subtract-east mnemonic." }
+            { "id": "compass-2", "prompt": "Convert 270°T to compass with 5°W variation and 3°E deviation, ignoring leeway for this conversion step.", "expected_keywords": ["272", "compass"], "forbidden_keywords": ["266", "280"], "correct_explanation": "From true to magnetic, add 5°W: 270°T + 5° = 275°M. From magnetic to compass, subtract 3°E deviation: 275°M - 3° = 272°C.", "deep_remediation": "Write each conversion as a separate signed step: add west going from true to magnetic, then subtract east going from magnetic to compass." }
           ]
         },
         {
