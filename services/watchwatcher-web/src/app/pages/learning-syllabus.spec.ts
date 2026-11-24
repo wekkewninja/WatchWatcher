@@ -116,4 +116,20 @@ describe('SyllabusPage', () => {
     expect(page.loading()).toBe(false);
     expect(getModules).toHaveBeenCalledTimes(2);
   });
+
+  it('assigns zero mastery to modules without topics and falls back for non-Error failures', async () => {
+    vi.spyOn(api, 'getModules').mockResolvedValueOnce([
+      { id: 'empty', title: 'Empty', mastery: 90, completed: 2, topicCount: 0, passThreshold: 80, topics: [], topicIds: [] },
+    ]).mockRejectedValueOnce('offline');
+    const memory = { loadAndMergeCloudProgress: vi.fn().mockResolvedValue({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] }) } as unknown as StudentMemoryService;
+    const page = new SyllabusPage(memory);
+
+    await page.load();
+    expect(page.modules()).toEqual([expect.objectContaining({ mastery: 0, completed: 0 })]);
+    expect(page.weakSpots()).toEqual([]);
+
+    await page.load();
+    expect(page.error()).toBe('Try again in a moment.');
+    expect(page.loading()).toBe(false);
+  });
 });

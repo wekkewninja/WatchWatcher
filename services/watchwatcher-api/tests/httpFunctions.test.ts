@@ -162,6 +162,16 @@ describe('HTTP function contracts', () => {
     }
   });
 
+  it('redacts non-Error failures in the production environment', async () => {
+    vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Production');
+    mocks.auth.authenticate.mockRejectedValue('internal string failure');
+    try {
+      expect(await invoke('authMe')).toMatchObject({ status: 500, jsonBody: { error: { code: 'INTERNAL_ERROR', message: 'An internal error occurred' } } });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('keeps actionable diagnostics in the Azure development environment', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Development');

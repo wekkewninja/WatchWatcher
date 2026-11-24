@@ -81,13 +81,37 @@ describe('AuthService', () => {
     const auth = new AuthService(database, config);
     await auth.register({ name: 'S. Taylor', email: 'sailor@example.test', password: 'a-strong-password' });
     await expect(auth.register({ name: 'Other', email: 'sailor@example.test', password: 'another-strong-password' })).rejects.toBeInstanceOf(ConflictError);
-    await expect(auth.login({ email: 'sailor@example.test', password: 'wrong-password' })).rejects.toBeInstanceOf(UnauthorizedError);
+    const invalidLogins = await Promise.all([
+      auth.login({ email: 'sailor@example.test', password: 'wrong-password' }).catch((error: unknown) => error),
+      auth.login({ email: 'unknown@example.test', password: 'wrong-password' }).catch((error: unknown) => error),
+    ]);
+    expect(invalidLogins.every((error) => error instanceof UnauthorizedError)).toBe(true);
+    expect(invalidLogins.map((error) => (error as Error).message)).toEqual([
+      'Email or password is incorrect.',
+      'Email or password is incorrect.',
+    ]);
   });
 
   it('rejects missing and malformed bearer sessions', async () => {
     const auth = new AuthService(new MemoryAccountDatabase(), config);
     await expect(auth.authenticate(undefined)).rejects.toBeInstanceOf(UnauthorizedError);
     await expect(auth.authenticate('Bearer not-a-jwt')).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it('normalizes invalid Google-provider credentials without exposing verifier errors', async () => {
+    const auth = new AuthService(new MemoryAccountDatabase(), config, {
+      verify: async () => { throw new Error('provider verification internals'); },
+    });
+    await expect(auth.loginWithGoogle({ credential: 'invalid-token', challengeId: 'challenge' }))
+      .rejects.toMatchObject({ statusCode: 401, message: 'Google sign-in credential is invalid or expired.' });
+  });
+
+  it('rejects session creation without a configured signing secret and Google setup without a client ID', async () => {
+    const missingSigningSecret = new AuthService(new MemoryAccountDatabase(), { ...config, jwtSecret: undefined });
+    await expect(missingSigningSecret.register({ name: 'Sailor', email: 'sailor@example.test', password: 'a-strong-password' }))
+      .rejects.toThrow('Session signing is not configured.');
+    expect(() => new AuthService(new MemoryAccountDatabase(), { ...config, googleClientId: undefined }).getGoogleClientId())
+      .toThrow('Google sign-in is not configured.');
   });
 
   it('keeps sessions account-scoped', async () => {
@@ -140,6 +164,21 @@ describe('AuthService', () => {
     if (linked.kind !== 'session') throw new Error('Expected linked account session.');
     expect(linked.session.accountId).toBe(existing.accountId);
     expect(await database.findAccountByGoogleSubject(identity.subject)).toMatchObject({ id: existing.accountId });
+  });
+
+  it('rejects a Google challenge consumed between validation and session creation', async () => {
+    const database = new MemoryAccountDatabase();
+    const linkedAccount = { id: 'account-linked', name: 'Sailor', email: 'linked@example.test', passwordHash: null };
+    database.accounts.set(linkedAccount.email, linkedAccount);
+    database.googleIdentities.set('google-sub-race', linkedAccount.id);
+    let identity: VerifiedGoogleIdentity;
+    const auth = new AuthService(database, config, { verify: async () => identity });
+    const challenge = await auth.createGoogleChallenge();
+    identity = { subject: 'google-sub-race', email: linkedAccount.email, name: linkedAccount.name, nonce: challenge.nonce };
+    database.consumeGoogleChallenge = async () => false;
+
+    await expect(auth.loginWithGoogle({ credential: 'signed-token', challengeId: challenge.challengeId }))
+      .rejects.toMatchObject({ statusCode: 401, message: 'Google sign-in challenge is invalid, expired, or already used.' });
   });
 
   it('rejects a replayed Google nonce challenge', async () => {
