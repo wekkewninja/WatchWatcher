@@ -162,6 +162,24 @@ describe('Assessment question bank', () => {
     expect(gradeShortAnswer(mobQuestion, 'A leeward-side pickup is generally preferred because the hull will not drift onto the casualty.').correct).toBe(false);
   });
 
+  it('does not require a universal helm direction for heaving-to', () => {
+    const heaveToQuestion = bank.questions.find((question) => question.id === 'mob-2');
+    expect(heaveToQuestion?.type).toBe('short-answer');
+    if (heaveToQuestion?.type !== 'short-answer') throw new Error('Expected mob-2 to be a short-answer Exam question.');
+
+    expect(heaveToQuestion.expectedKeywords).not.toContain('leeward');
+    expect(gradeShortAnswer(heaveToQuestion, 'Use a backed headsail and an eased main; set the helm for this vessel balance.').correct).toBe(true);
+  });
+
+  it('does not require an unverified warm-front wind-direction cue', () => {
+    const warmFrontQuestion = bank.questions.find((question) => question.id === 'weather-2');
+    expect(warmFrontQuestion?.type).toBe('short-answer');
+    if (warmFrontQuestion?.type !== 'short-answer') throw new Error('Expected weather-2 to be a short-answer Exam question.');
+
+    expect(warmFrontQuestion.expectedKeywords).toEqual(['falling pressure', 'cloud sequence']);
+    expect(gradeShortAnswer(warmFrontQuestion, 'Falling pressure and a thickening cloud sequence may precede the warm front.').correct).toBe(true);
+  });
+
   it('uses the correct generated answers for tow, sound equipment, attention, anchor, and restricted-visibility signals', () => {
     const answerText = (id: string) => {
       const question = bank.questions.find((item) => item.id === id);
