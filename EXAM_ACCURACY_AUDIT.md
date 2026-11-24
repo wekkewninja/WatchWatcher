@@ -6,6 +6,12 @@ The Exam inventory contains COLREGs Rules 1-41, Annexes I-IV, and 13 curriculum 
 
 **Status: In progress.** Keep issue #23 open, and do not treat this PR as the prerequisite-complete branch for #22 until the remaining curriculum checks below are resolved.
 
+## Audience and Regional Scope
+
+- Current target: RYA Yachtmaster is the primary curriculum and source set.
+- Future product consideration: an ASA-heavy selectable profile may be added later; it is not part of this issue's implementation.
+- Regional examples: British Isles. Use the Bristol Channel/Severn Estuary as the initial candidate case study for complex tidal planning. Verify all numeric examples against the current UKHO chart, tide predictions, and relevant local publications before adding them to the Exam.
+
 | Area | Coverage reviewed |
 | --- | --- |
 | General and steering | Rules 1-18 |
@@ -21,6 +27,7 @@ The Exam inventory contains COLREGs Rules 1-41, Annexes I-IV, and 13 curriculum 
 - Rule 33's first generated key point incorrectly said bells are required from 12 meters. The corrected thresholds are a whistle from 12 meters, a bell from 20 meters, and a gong from 100 meters. A generated-bank regression test covers the corrected key point.
 - The attention-light check used International Rule 36 wording without identifying the regime. It now says International Rule 36 explicitly and includes the restriction on confusing lights and the warning to avoid high-intensity intermittent or revolving lights.
 - The long-tow check now identifies Rule 24(a)'s towing-vessel arrangement and distinguishes it from Rule 24(g)'s separate treatment of inconspicuous, partly submerged tows.
+- The authored long-tow curriculum explanation incorrectly assigned Rule 24(a)'s diamond to the tow as well as the towing vessel. It now distinguishes Rule 24(a) from Rule 24(g), with a generated-answer regression test.
 - The anchor-light answer now distinguishes the optional single all-round white light for a vessel under 50 meters from Rule 30(a)'s two-light arrangement.
 - The restricted-visibility answer now includes the gong after the bell for anchored vessels 100 meters or more, while retaining the additional bell strokes required when aground.
 - The MOB curriculum previously generalized that a leeward-side pickup is preferred. It now teaches the RYA's upwind approach guidance and requires adapting to wind, sea state, current, vessel handling, and propeller risk.
@@ -34,6 +41,7 @@ The Exam inventory contains COLREGs Rules 1-41, Annexes I-IV, and 13 curriculum 
 - [USCG Navigation Rules, International and U.S. Inland](https://www.navcen.uscg.gov/navigation-rules-amalgamated). The page marks regime-specific wording and records a November 16, 2026 update.
 - [NOAA Tidal Datums](https://tidesandcurrents.noaa.gov/datum_options.html), for datum definitions and the limits on applying local tidal-datum relationships elsewhere.
 - [NOAA United States Coast Pilot](https://nauticalcharts.noaa.gov/publications/coast-pilot/index.html), for the official publication's scope across coastal hazards, channels, anchorages, tides, currents, and related navigation information.
+- [ADMIRALTY Tide Tables](https://www.admiralty.co.uk/publications/publications-and-reference-guides/admiralty-tide-tables), the UKHO source for port tidal predictions; RYA also identifies UKHO EasyTide as a source of short-term predictions.
 - [NOAA JetStream Norwegian Cyclone Model](https://www.noaa.gov/jetstream/synoptic/norwegian-cyclone-model), for general frontal development and precipitation context.
 - [Royal Yachting Association: Man overboard](https://www.rya.org.uk/knowledge/safety/man-overboard/), for the upwind approach guidance and casualty recovery considerations.
 
@@ -41,9 +49,8 @@ The Exam inventory contains COLREGs Rules 1-41, Annexes I-IV, and 13 curriculum 
 
 This is an educational content review, not an operational navigation approval or substitute for current charts, notices, local rules, or official publications. Regional and training notes should be checked against the relevant authority and the passage area. The USCG amalgamated page itself disclaims guarantees of accuracy; use the current official rule text when making real-world decisions.
 
-The detailed source pass has not yet verified every authored curriculum answer against its named syllabus authority. The applicable region for tidal-gate and local passage-planning examples must be fixed before those examples can be checked against a specific Coast Pilot or local publication.
+The detailed source pass has not yet verified every authored curriculum answer against its named syllabus authority. The regional target is now set to the British Isles; use UKHO charts, tide tables, tidal stream products, and relevant local publications to verify the selected Bristol Channel/Severn Estuary examples.
 
 ## Questions for Review
 
-- Should RYA Yachtmaster be the primary reference for navigation, tides, weather, and passage planning, with ASA/U.S. material treated as regional notes, or should the Exam support both curricula equally?
-- Which region should anchor the tidal-gate, bar, and local passage-planning examples? They need a specific chart and Coast Pilot/local publication for a complete source check.
+- No further decision is needed for this audit pass. The possible ASA selectable profile is a future product choice; the British Isles region and RYA-first curriculum are recorded above.

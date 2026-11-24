@@ -197,6 +197,16 @@ describe('Assessment question bank', () => {
     expect(answerText('signals-anchored-aground')).toContain('100 meters or more also sound the gong');
   });
 
+  it('keeps the Rule 24(a) towing-vessel diamond distinct from Rule 24(g) tow shapes', () => {
+    const towQuestion = bank.questions.find((question) => question.id === 'lights-2');
+    expect(towQuestion?.type).toBe('short-answer');
+    if (towQuestion?.type !== 'short-answer') throw new Error('Expected lights-2 to be a short-answer Exam question.');
+
+    expect(towQuestion.modelAnswer).toContain('the towing vessel displays');
+    expect(towQuestion.modelAnswer).toContain('Rule 24(g) separately');
+    expect(towQuestion.modelAnswer).not.toContain('the tow also displays the prescribed diamond shape');
+  });
+
   it('loads and caches the bank from bundled curriculum and reference content', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(curriculum), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
