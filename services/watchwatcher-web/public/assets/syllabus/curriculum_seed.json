@@ -154,11 +154,11 @@
       "topics": [
         {
           "id": "emerg_mob_heavy_weather", "rule_ref": "MOB & heavy weather", "title": "MOB recovery & storm tactics",
-          "summary": "Raise the alarm, mark the casualty, assign a spotter, maneuver deliberately, and recover on the leeward side when safe.",
+          "summary": "Raise the alarm, mark the casualty, assign a spotter, and plan an upwind approach while accounting for wind, sea state, current, and propeller risk.",
           "asa_note": "Adapt recovery procedure to vessel, crew, sea state, and local rescue guidance.",
           "visual_spec": { "type": "none", "params": {} },
           "questions": [
-            { "id": "mob-1", "prompt": "Why is a leeward-side pickup generally preferred for a person overboard?", "expected_keywords": ["hull", "drift", "casualty", "lee"], "forbidden_keywords": ["hull drifts onto casualty"], "correct_explanation": "A controlled leeward recovery reduces the risk of the hull being blown or drifted onto the casualty; adapt to conditions and vessel handling.", "deep_remediation": "Describe relative wind and drift at the final approach, then identify the safer side." },
+            { "id": "mob-1", "prompt": "How should you plan the final approach to a person overboard?", "expected_keywords": ["upwind", "wind", "sea", "current", "hull", "propeller"], "forbidden_keywords": ["leeward side is always safer", "leeward-side pickup is generally preferred"], "correct_explanation": "Position the vessel upwind of the casualty so that, as it slows, it is blown toward them. Adapt the approach to wind, sea state, current, vessel handling, and propeller risk.", "deep_remediation": "State the relative position, how the vessel will drift as it slows, and how the crew will keep the hull and propeller clear of the casualty." },
             { "id": "mob-2", "prompt": "Name the sail and helm configuration commonly used to heave-to in a rising gale.", "expected_keywords": ["backed headsail", "sheeted main", "helm", "leeward"], "forbidden_keywords": ["full sail", "helm unattended"], "correct_explanation": "A backed headsail, eased or sheeted main, and helm set to maintain the balance can hold the vessel hove-to; practice on the specific boat.", "deep_remediation": "Explain how the backed headsail and main balance the boat and keep a watch on lee shore and sea room." }
           ]
         },

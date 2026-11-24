@@ -153,6 +153,15 @@ describe('Assessment question bank', () => {
     expect(gradeShortAnswer(transitQuestion, 'I am on the port side of the transit and should steer right.').correct).toBe(false);
   });
 
+  it('grades the wind-aware MOB approach in the generated Exam bank', () => {
+    const mobQuestion = bank.questions.find((question) => question.id === 'mob-1');
+    expect(mobQuestion?.type).toBe('short-answer');
+    if (mobQuestion?.type !== 'short-answer') throw new Error('Expected mob-1 to be a short-answer Exam question.');
+
+    expect(gradeShortAnswer(mobQuestion, 'Position the vessel upwind and let it drift toward the casualty as it slows, accounting for wind, sea, current, hull clearance, and propeller risk.').correct).toBe(true);
+    expect(gradeShortAnswer(mobQuestion, 'A leeward-side pickup is generally preferred because the hull will not drift onto the casualty.').correct).toBe(false);
+  });
+
   it('uses the correct generated answers for tow, sound equipment, attention, anchor, and restricted-visibility signals', () => {
     const answerText = (id: string) => {
       const question = bank.questions.find((item) => item.id === id);
