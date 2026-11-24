@@ -1,0 +1,54 @@
+# Security and Privacy Review
+
+Reviewed: 2026-11-23
+
+## Scope and limits
+
+This is a source, configuration, dependency, and local-test review of the web app, Functions API, PostgreSQL access, IndexedDB progress storage, Google sign-in, Gemini evaluation, and GitHub Actions. No production environment is deployed or available for inspection. This review does not test production accounts, Azure ingress, DNS, production secrets, network policy, or Azure diagnostic retention, and is not a penetration test or a claim of zero vulnerabilities.
+
+## Data flows
+
+- Email, password, Google credentials, learner progress, and evaluation answers travel from the browser to the API. Passwords are validated, hashed with bcrypt before persistence, and are not returned in account responses.
+- The API issues 20-minute HS256 bearer tokens. The browser keeps the token in memory, derives account identity from the verified token, and clears the token on logout. The API scopes progress reads and writes to that identity; SQL uses parameters for user-controlled values.
+- Local progress is stored in IndexedDB under a guest or account-specific key. The service worker caches the app shell and bundled study content, not API responses.
+- Google ID tokens are verified for audience and provider signature/claims; the API requires a verified email and one-time nonce. Existing-account linking requires the account password and explicit confirmation.
+- Online evaluation sends the submitted topic, context, and answer to Gemini. It does not include the account ID or stored progress. The Gemini key is read from server configuration and sent in the `x-goog-api-key` header.
+- Application request logs include method, path, status, duration, and invocation ID; request bodies and authorization headers are not logged by the application HTTP wrapper. Azure/platform logging settings were not inspectable.
+
+## Findings and disposition
+
+| Finding | Severity | Evidence and disposition |
+| --- | --- | --- |
+| Unexpected API errors could expose internal messages in Azure Production because redaction checked `NODE_ENV` while Functions uses `AZURE_FUNCTIONS_ENVIRONMENT`. | Medium | Fixed in this PR. Unknown environments default to redaction; tests cover Azure Production with `NODE_ENV=development` and Azure Development with `NODE_ENV=production`. |
+| Gemini API key was placed in the provider URL query string, where infrastructure may retain URLs in access logs. | Medium | Fixed in this PR. The key is now sent in `x-goog-api-key`; the service test asserts it is absent from the URL. |
+| API test tooling included Critical `vitest`/`tinypool` advisories. | Critical, development-only | Fixed in this PR by aligning API Vitest and coverage tooling to 5.1.1. The updated clean-install CI run is the final lockfile/runtime validation. |
+| Three Moderate development-only advisories remain through `node-pg-migrate`, `glob`, and `minimatch`. | Moderate, development-only | Production audit is clean. npm's proposed node-pg-migrate remediation is a major downgrade; do not apply without migration compatibility testing. Follow-up #30 tracks safe remediation. |
+| Login, registration, Google challenge, and evaluation endpoints have no application-level distributed throttling. | Medium residual | Process-local throttling would not protect a scale-out Functions deployment. Follow-up #28 covers selecting and implementing shared ingress/rate-limit controls before public rollout. |
+| A bearer token cannot be revoked server-side after client logout and can remain usable until its 20-minute expiry. | Low residual | Client logout clears in-memory credentials; short token lifetime bounds, but does not eliminate, the window. Follow-up #28 captures whether server-side revocation is required. |
+| There is no account/progress deletion API or published retention policy; IndexedDB data remains on the device after sign-out. | Medium residual | Account data is account-scoped, but sign-out is not deletion. Follow-up #29 covers retention, local/offline deletion, and server cleanup. Coordinate Exam answer deletion with #22. |
+| Registration returns a distinct duplicate-email conflict to an unauthenticated caller. | Low residual | This can reveal that an address has an account. Decide whether to use generic registration feedback and account-recovery guidance while implementing #9; login itself uses the same generic invalid-credential response for unknown email and wrong password. |
+| Online evaluation sends the submitted topic, context, and answer to Google without an explicit per-request privacy notice in the reviewed UI. | Medium residual | No account ID or stored progress is included. Decide disclosure, consent, and provider retention expectations with the AI architecture work in #10 before expanding online AI features. |
+| CORS, security response headers, TLS termination, proxy trust, and production log retention depend on the not-yet-selected hosting/ingress configuration. | Not verified | Must be assessed against the approved deployment architecture in #13 before release; no live endpoint was probed. |
+
+## Questions for the product/platform owner
+
+- Which production ingress and shared store should enforce distributed rate limits, and what login/evaluation limits are acceptable? See #28.
+- What retention period and deletion scope should apply to account profiles, progress, Exam answers, and local-device data? See #29 and #22.
+- Should duplicate registration reveal that an email is already registered, or return generic guidance? See #9.
+- What notice/consent and provider-retention policy should apply before a learner's answer is sent to Gemini? See #10.
+- Which Azure hosting/ingress settings will govern CORS, security headers, trusted proxies, and diagnostic retention? See #13.
+
+No Critical or High production-dependency advisory was found by the production audit. The remaining Moderate findings are development-only and are not represented as fixed.
+
+## Reproducible checks
+
+Run from the repository root:
+
+```sh
+npm run build
+npm test
+npm audit --omit=dev --audit-level=high
+npm audit
+```
+
+The audit run for this review found zero production vulnerabilities. The full audit reported three Moderate development-tool findings after the Vitest upgrade; it reported no Critical or High findings. CI also runs the required coverage and icon gates.

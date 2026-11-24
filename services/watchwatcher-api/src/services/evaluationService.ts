@@ -9,9 +9,9 @@ export class GeminiEvaluationService implements IEvaluationService {
   async evaluate(input: EvaluationRequest): Promise<EvaluationResult> {
     const key = this.config.geminiApiKey;
     if (!key) throw new Error('Gemini evaluation is not configured.');
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       signal: AbortSignal.timeout(10000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: 'Assess this Yachtmaster study answer conservatively against the supplied rule context. Return only JSON with score (0 to 1), feedback, misconceptionTag (string or null), followUpDrill.' }] },
