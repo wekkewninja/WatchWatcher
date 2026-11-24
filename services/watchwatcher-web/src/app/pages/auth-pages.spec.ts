@@ -35,11 +35,31 @@ describe('LoginPage', () => {
 
   it('reports a sign-in failure and restores the busy state', async () => {
     const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
-    auth.login.mockRejectedValue(new Error('Invalid credentials'));
+    page.email = 'sailor@example.com';
+    page.password = 'wrong-password';
+    auth.login.mockRejectedValue(Object.assign(new Error('internal auth detail'), { status: 401 }));
     await page.submit();
-    expect(page.error()).toBe('Invalid credentials');
+    expect(page.error()).toBe('Email or password is incorrect.');
+    expect(page.email).toBe('sailor@example.com');
+    expect(page.password).toBe('');
     expect(page.busy()).toBe(false);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('shows actionable network, rate-limit, and server feedback without internal details', async () => {
+    const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
+    auth.login.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await page.submit();
+    expect(page.error()).toBe('Unable to reach WatchWatcher. Check your connection and try again.');
+
+    auth.login.mockRejectedValueOnce(Object.assign(new Error('internal rate detail'), { status: 429 }));
+    await page.submit();
+    expect(page.error()).toBe('Too many sign-in attempts. Wait a moment and try again.');
+
+    auth.login.mockRejectedValueOnce(Object.assign(new Error('internal server detail'), { status: 500 }));
+    await page.submit();
+    expect(page.error()).toBe('Sign-in is temporarily unavailable. Please try again shortly.');
+    expect(page.busy()).toBe(false);
   });
 });
 
@@ -62,6 +82,19 @@ describe('CreateAccountPage', () => {
     expect(page.error()).toBe('Account already exists');
     expect(page.busy()).toBe(false);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('gives actionable duplicate-email and network feedback after registration failures', async () => {
+    const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
+    auth.createAccount.mockRejectedValueOnce(Object.assign(new Error('internal conflict detail'), { status: 409 }));
+    await page.submit();
+    expect(page.error()).toBe('An account may already exist for this email. Try signing in.');
+    expect(page.busy()).toBe(false);
+
+    auth.createAccount.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await page.submit();
+    expect(page.error()).toBe('Unable to reach WatchWatcher. Check your connection and try again.');
+    expect(page.busy()).toBe(false);
   });
 });
 
