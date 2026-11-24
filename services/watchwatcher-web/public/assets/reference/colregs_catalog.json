@@ -263,7 +263,7 @@
       "summary": "Sets whistle, bell, and gong equipment requirements according to vessel length, with an alternate efficient-signal provision for smaller vessels.",
       "memory_hook": "Required sound equipment scales with vessel length.",
       "asa_inland_note": "Check the current Inland requirements and any local equipment rules for the vessel.",
-      "key_points": ["Vessels 12 meters or more require a whistle and bell.", "Vessels 100 meters or more also require a gong under the rule.", "Smaller vessels need an efficient means of making a sound signal even where the full equipment set is not required."],
+      "key_points": ["Vessels 12 meters or more require a whistle; vessels 20 meters or more also require a bell, and vessels 100 meters or more also require a gong.", "Vessels 100 meters or more also require a gong under the rule.", "Smaller vessels need an efficient means of making a sound signal even where the full equipment set is not required."],
       "exercise": {"prompt": "What extra sound appliance does a vessel 100 meters or more carry in addition to a whistle and bell?", "options": [{"id":"a","text":"A gong."},{"id":"b","text":"A foghorn that can only sound one blast."},{"id":"c","text":"A siren replacing every other signal."},{"id":"d","text":"No extra appliance is specified."}], "answer":"a", "explanation":"Rule 33 requires a gong as well for a vessel 100 meters or more in length.", "remediation":"Remember the thresholds: whistle and bell from 12 meters; gong added at 100 meters."}
     },
     {

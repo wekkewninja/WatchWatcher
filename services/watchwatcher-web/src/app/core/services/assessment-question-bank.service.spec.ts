@@ -144,6 +144,32 @@ describe('Assessment question bank', () => {
     expect(gradeShortAnswer(compassQuestion, 'The course is 266 degrees compass.').correct).toBe(false);
   });
 
+  it('grades transit-mark side and correction in the generated Exam bank', () => {
+    const transitQuestion = bank.questions.find((question) => question.id === 'plan-1');
+    expect(transitQuestion?.type).toBe('short-answer');
+    if (transitQuestion?.type !== 'short-answer') throw new Error('Expected plan-1 to be a short-answer Exam question.');
+
+    expect(gradeShortAnswer(transitQuestion, 'I am on the starboard side of the transit and should steer left (port) to regain it.').correct).toBe(true);
+    expect(gradeShortAnswer(transitQuestion, 'I am on the port side of the transit and should steer right.').correct).toBe(false);
+  });
+
+  it('uses the correct generated answers for tow, sound equipment, attention, anchor, and restricted-visibility signals', () => {
+    const answerText = (id: string) => {
+      const question = bank.questions.find((item) => item.id === id);
+      expect(question?.type).toBe('choice');
+      if (question?.type !== 'choice') throw new Error(`Expected ${id} to be a choice Exam question.`);
+      return question.options.find((option) => option.id === question.answer)?.text ?? '';
+    };
+
+    expect(answerText('lights-tow-200m')).toBe('Three masthead lights in a vertical line and a black diamond where it can best be seen.');
+    expect(answerText('rule-33:key-point:1')).toBe('Vessels 12 meters or more require a whistle; vessels 20 meters or more also require a bell, and vessels 100 meters or more also require a gong.');
+    expect(answerText('lights-anchor')).toBe('One all-round white light where it can best be seen; by day, one black ball. It may instead use the two-light arrangement in Rule 30(a).');
+    const attentionQuestion = bank.questions.find((item) => item.id === 'signals-attention');
+    expect(attentionQuestion?.sourceRef).toBe('International Rule 36');
+    expect(answerText('signals-attention')).toContain('high-intensity intermittent or revolving lights');
+    expect(answerText('signals-anchored-aground')).toContain('100 meters or more also sound the gong');
+  });
+
   it('loads and caches the bank from bundled curriculum and reference content', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(curriculum), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
