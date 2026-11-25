@@ -131,6 +131,20 @@ describe('PostgresDatabaseService accounts and transactions', () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it('rolls back Google account creation when an email or identity uniqueness conflict occurs', async () => {
+    const query = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1 })
+      .mockRejectedValueOnce({ code: '23505' }).mockResolvedValueOnce({});
+    const release = vi.fn();
+    const database = new PostgresDatabaseService(config);
+    (database as unknown as { pool: unknown }).pool = { connect: vi.fn().mockResolvedValue({ query, release }) };
+
+    await expect(database.createGoogleAccount({
+      id: 'account-1', name: 'Sailor', email: 'sailor@example.com', subject: 'subject-1', challengeId: 'challenge-1', nonceHash: 'hash',
+    })).rejects.toMatchObject({ statusCode: 409, message: 'This email or Google identity is already linked to an account.' });
+    expect(query.mock.calls.at(-1)?.[0]).toBe('ROLLBACK');
+    expect(release).toHaveBeenCalledOnce();
+  });
+
   it('rolls back account creation when a Google challenge was already used', async () => {
     const query = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 0 }).mockResolvedValueOnce({});
     const release = vi.fn();
