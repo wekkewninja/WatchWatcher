@@ -194,6 +194,8 @@ describe('Assessment question bank', () => {
     const attentionQuestion = bank.questions.find((item) => item.id === 'signals-attention');
     expect(attentionQuestion?.sourceRef).toBe('International Rule 36');
     expect(answerText('signals-attention')).toContain('high-intensity intermittent or revolving lights');
+    const anchoredQuestion = bank.questions.find((item) => item.id === 'signals-anchored-aground');
+    expect(anchoredQuestion?.prompt).toContain('20 meters or more');
     expect(answerText('signals-anchored-aground')).toContain('100 meters or more also sound the gong');
   });
 
@@ -205,6 +207,37 @@ describe('Assessment question bank', () => {
     expect(towQuestion.modelAnswer).toContain('the towing vessel displays');
     expect(towQuestion.modelAnswer).toContain('Rule 24(g) separately');
     expect(towQuestion.modelAnswer).not.toContain('the tow also displays the prescribed diamond shape');
+  });
+
+  it('scopes curriculum questions to the rule context their answers depend on', () => {
+    const longTowQuestion = bank.questions.find((question) => question.id === 'lights-2');
+    const restrictedVisibilityQuestion = bank.questions.find((question) => question.id === 'rule19-2');
+
+    expect(longTowQuestion?.prompt).toContain('length of tow measured from its stern to the after end of the tow exceeds 200 m');
+    expect(restrictedVisibilityQuestion?.prompt).toContain('one prolonged blast followed by two short blasts');
+    expect(restrictedVisibilityQuestion?.explanation).toContain('Unless risk of collision has been determined not to exist');
+  });
+
+  it('accepts each authored short-answer model answer against its expected keywords', () => {
+    const shortAnswerQuestions = bank.questions.filter((question) => question.type === 'short-answer');
+
+    for (const question of shortAnswerQuestions) {
+      expect(gradeShortAnswer(question, question.modelAnswer).correct, question.id).toBe(true);
+    }
+  });
+
+  it('requires local reassessment instead of treating a tide phase as a safe bar-entry guarantee', () => {
+    const barQuestion = bank.questions.find((question) => question.id === 'bar-1');
+
+    expect(barQuestion?.type).toBe('short-answer');
+    if (barQuestion?.type !== 'short-answer') throw new Error('Expected bar-1 to be a short-answer Exam question.');
+    expect(barQuestion.modelAnswer).toContain('Do not assume the flood is automatically safe');
+  });
+
+  it('states the interpolation factor in the neap-to-spring stream-rate question', () => {
+    const streamQuestion = bank.questions.find((question) => question.id === 'diamonds-1');
+
+    expect(streamQuestion?.prompt).toContain('50% interpolation point');
   });
 
   it('loads and caches the bank from bundled curriculum and reference content', async () => {
