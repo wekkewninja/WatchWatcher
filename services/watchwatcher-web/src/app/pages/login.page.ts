@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { AuthStateService } from '../core/auth-state.service';
 import { GoogleSignInButtonComponent, type GoogleCredentialEvent } from '../shared/google-sign-in-button.component';
+import { authenticationErrorMessage, responseStatus } from './auth-error';
 
 @Component({
   standalone: true,
@@ -52,7 +53,10 @@ export class LoginPage {
     this.busy.set(true);
     this.error.set('');
     try { await this.auth.login(this.email, this.password); await this.router.navigateByUrl('/'); }
-    catch (error) { this.error.set(error instanceof Error ? error.message : 'Sign-in failed.'); }
+    catch (error) {
+      if (responseStatus(error) === 401) this.password = '';
+      this.error.set(authenticationErrorMessage(error, 'Sign-in'));
+    }
     finally { this.busy.set(false); }
   }
 

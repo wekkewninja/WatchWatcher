@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { AuthStateService } from '../core/auth-state.service';
 import { GoogleSignInButtonComponent, type GoogleCredentialEvent } from '../shared/google-sign-in-button.component';
+import { authenticationErrorMessage } from './auth-error';
 
 @Component({
   standalone: true,
@@ -54,7 +55,7 @@ export class CreateAccountPage {
     this.busy.set(true);
     this.error.set('');
     try { await this.auth.createAccount(this.name.trim(), this.email, this.password); await this.router.navigateByUrl('/'); }
-    catch (error) { this.error.set(error instanceof Error ? error.message : 'Account creation failed.'); }
+    catch (error) { this.error.set(authenticationErrorMessage(error, 'Account creation')); }
     finally { this.busy.set(false); }
   }
 
