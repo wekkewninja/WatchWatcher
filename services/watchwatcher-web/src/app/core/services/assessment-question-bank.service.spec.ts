@@ -139,6 +139,114 @@ describe('Assessment question bank', () => {
     expect(gradeShortAnswer(shortAnswer, shortAnswer.forbiddenKeywords[0] ?? 'unrelated answer').correct).toBe(false);
   });
 
+  it('grades the corrected compass conversion in the generated Exam bank', () => {
+    const compassQuestion = bank.questions.find((question) => question.id === 'compass-2');
+    expect(compassQuestion?.type).toBe('short-answer');
+    if (compassQuestion?.type !== 'short-answer') throw new Error('Expected compass-2 to be a short-answer Exam question.');
+
+    expect(compassQuestion.expectedKeywords).toContain('272');
+    expect(compassQuestion.forbiddenKeywords).toContain('266');
+    expect(compassQuestion.explanation).toContain('275°M - 3° = 272°C');
+    expect(gradeShortAnswer(compassQuestion, 'The course is 272 degrees compass.').correct).toBe(true);
+    expect(gradeShortAnswer(compassQuestion, 'The course is 266 degrees compass.').correct).toBe(false);
+  });
+
+  it('grades transit-mark side and correction in the generated Exam bank', () => {
+    const transitQuestion = bank.questions.find((question) => question.id === 'plan-1');
+    expect(transitQuestion?.type).toBe('short-answer');
+    if (transitQuestion?.type !== 'short-answer') throw new Error('Expected plan-1 to be a short-answer Exam question.');
+
+    expect(gradeShortAnswer(transitQuestion, 'I am on the starboard side of the transit and should steer left (port) to regain it.').correct).toBe(true);
+    expect(gradeShortAnswer(transitQuestion, 'I am on the port side of the transit and should steer right.').correct).toBe(false);
+  });
+
+  it('grades the wind-aware MOB approach in the generated Exam bank', () => {
+    const mobQuestion = bank.questions.find((question) => question.id === 'mob-1');
+    expect(mobQuestion?.type).toBe('short-answer');
+    if (mobQuestion?.type !== 'short-answer') throw new Error('Expected mob-1 to be a short-answer Exam question.');
+
+    expect(gradeShortAnswer(mobQuestion, 'Position the vessel upwind and let it drift toward the casualty as it slows, accounting for wind, sea, current, hull clearance, and propeller risk.').correct).toBe(true);
+    expect(gradeShortAnswer(mobQuestion, 'A leeward-side pickup is generally preferred because the hull will not drift onto the casualty.').correct).toBe(false);
+  });
+
+  it('does not require a universal helm direction for heaving-to', () => {
+    const heaveToQuestion = bank.questions.find((question) => question.id === 'mob-2');
+    expect(heaveToQuestion?.type).toBe('short-answer');
+    if (heaveToQuestion?.type !== 'short-answer') throw new Error('Expected mob-2 to be a short-answer Exam question.');
+
+    expect(heaveToQuestion.expectedKeywords).not.toContain('leeward');
+    expect(gradeShortAnswer(heaveToQuestion, 'Use a backed headsail and an eased main; set the helm for this vessel balance.').correct).toBe(true);
+  });
+
+  it('does not require an unverified warm-front wind-direction cue', () => {
+    const warmFrontQuestion = bank.questions.find((question) => question.id === 'weather-2');
+    expect(warmFrontQuestion?.type).toBe('short-answer');
+    if (warmFrontQuestion?.type !== 'short-answer') throw new Error('Expected weather-2 to be a short-answer Exam question.');
+
+    expect(warmFrontQuestion.expectedKeywords).toEqual(['falling pressure', 'cloud sequence']);
+    expect(gradeShortAnswer(warmFrontQuestion, 'Falling pressure and a thickening cloud sequence may precede the warm front.').correct).toBe(true);
+  });
+
+  it('uses the correct generated answers for tow, sound equipment, attention, anchor, and restricted-visibility signals', () => {
+    const answerText = (id: string) => {
+      const question = bank.questions.find((item) => item.id === id);
+      expect(question?.type).toBe('choice');
+      if (question?.type !== 'choice') throw new Error(`Expected ${id} to be a choice Exam question.`);
+      return question.options.find((option) => option.id === question.answer)?.text ?? '';
+    };
+
+    expect(answerText('lights-tow-200m')).toBe('Three masthead lights in a vertical line and a black diamond where it can best be seen.');
+    expect(answerText('rule-33:key-point:1')).toBe('Vessels 12 meters or more require a whistle; vessels 20 meters or more also require a bell, and vessels 100 meters or more also require a gong.');
+    expect(answerText('lights-anchor')).toBe('One all-round white light where it can best be seen; by day, one black ball. It may instead use the two-light arrangement in Rule 30(a).');
+    const attentionQuestion = bank.questions.find((item) => item.id === 'signals-attention');
+    expect(attentionQuestion?.sourceRef).toBe('International Rule 36');
+    expect(answerText('signals-attention')).toContain('high-intensity intermittent or revolving lights');
+    const anchoredQuestion = bank.questions.find((item) => item.id === 'signals-anchored-aground');
+    expect(anchoredQuestion?.prompt).toContain('20 meters or more');
+    expect(answerText('signals-anchored-aground')).toContain('100 meters or more also sound the gong');
+  });
+
+  it('keeps the Rule 24(a) towing-vessel diamond distinct from Rule 24(g) tow shapes', () => {
+    const towQuestion = bank.questions.find((question) => question.id === 'lights-2');
+    expect(towQuestion?.type).toBe('short-answer');
+    if (towQuestion?.type !== 'short-answer') throw new Error('Expected lights-2 to be a short-answer Exam question.');
+
+    expect(towQuestion.modelAnswer).toContain('the towing vessel displays');
+    expect(towQuestion.modelAnswer).toContain('Rule 24(g) separately');
+    expect(towQuestion.modelAnswer).not.toContain('the tow also displays the prescribed diamond shape');
+  });
+
+  it('scopes curriculum questions to the rule context their answers depend on', () => {
+    const longTowQuestion = bank.questions.find((question) => question.id === 'lights-2');
+    const restrictedVisibilityQuestion = bank.questions.find((question) => question.id === 'rule19-2');
+
+    expect(longTowQuestion?.prompt).toContain('length of tow measured from its stern to the after end of the tow exceeds 200 m');
+    expect(restrictedVisibilityQuestion?.prompt).toContain('one prolonged blast followed by two short blasts');
+    expect(restrictedVisibilityQuestion?.explanation).toContain('Unless risk of collision has been determined not to exist');
+  });
+
+  it('accepts each authored short-answer model answer against its expected keywords', () => {
+    const shortAnswerQuestions = bank.questions.filter((question) => question.type === 'short-answer');
+
+    for (const question of shortAnswerQuestions) {
+      expect(gradeShortAnswer(question, question.modelAnswer).correct, question.id).toBe(true);
+    }
+  });
+
+  it('requires local reassessment instead of treating a tide phase as a safe bar-entry guarantee', () => {
+    const barQuestion = bank.questions.find((question) => question.id === 'bar-1');
+
+    expect(barQuestion?.type).toBe('short-answer');
+    if (barQuestion?.type !== 'short-answer') throw new Error('Expected bar-1 to be a short-answer Exam question.');
+    expect(barQuestion.modelAnswer).toContain('Do not assume the flood is automatically safe');
+  });
+
+  it('states the interpolation factor in the neap-to-spring stream-rate question', () => {
+    const streamQuestion = bank.questions.find((question) => question.id === 'diamonds-1');
+
+    expect(streamQuestion?.prompt).toContain('50% interpolation point');
+  });
+
   it('loads and caches the bank from bundled curriculum and reference content', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(curriculum), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
