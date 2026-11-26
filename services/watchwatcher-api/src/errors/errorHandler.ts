@@ -15,12 +15,14 @@ export function handleError(error: unknown, context: InvocationContext): HttpRes
   }
   const message = error instanceof Error ? error.message : String(error);
   logger.error({ err: error, invocationId: context.invocationId }, 'Unhandled request error');
+  const environment = (process.env.AZURE_FUNCTIONS_ENVIRONMENT ?? process.env.NODE_ENV ?? 'Production').toLowerCase();
+  const isProduction = environment !== 'development' && environment !== 'test';
   return {
     status: 500,
     jsonBody: {
       error: {
         code: 'INTERNAL_ERROR' satisfies ErrorCode,
-        message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : message,
+        message: isProduction ? 'An internal error occurred' : message,
       },
     },
   };

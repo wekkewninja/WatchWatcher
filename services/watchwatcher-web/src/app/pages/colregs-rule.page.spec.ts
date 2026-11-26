@@ -111,4 +111,36 @@ describe('ColregsRulePage practice exercise', () => {
     expect(host.querySelector('.official-paragraphs')?.textContent).toContain('(a) U.S. Inland wording.');
     expect(host.querySelector('.official-source')?.textContent).toContain('U.S. Inland Rules');
   });
+
+  it('shows a useful fallback when the requested rule is missing', async () => {
+    const reference = TestBed.inject(ColregsReferenceService);
+    vi.spyOn(reference, 'search').mockResolvedValueOnce([]);
+    const fixture = TestBed.createComponent(ColregsRulePage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.error()).toBe('This rule was not found in the bundled reference.');
+    expect(fixture.componentInstance.loading()).toBe(false);
+  });
+
+  it('uses fallback feedback for non-Error reference failures', async () => {
+    const reference = TestBed.inject(ColregsReferenceService);
+    vi.spyOn(reference, 'search').mockRejectedValueOnce('offline');
+    const fixture = TestBed.createComponent(ColregsRulePage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.error()).toBe('Try again from the reference list.');
+    expect(fixture.componentInstance.loading()).toBe(false);
+  });
+
+  it('returns no official paragraphs when a rule has no official text', async () => {
+    const fixture = TestBed.createComponent(ColregsRulePage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const ruleWithoutOfficialText = { ...practiceRule };
+    delete ruleWithoutOfficialText.officialText;
+
+    expect(fixture.componentInstance.officialParagraphs(ruleWithoutOfficialText)).toEqual([]);
+  });
 });

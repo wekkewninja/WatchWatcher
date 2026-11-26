@@ -124,6 +124,13 @@ describe('Assessment question bank', () => {
     expect(selected.some((question) => question.priority === 'critical')).toBe(true);
   });
 
+  it('clamps out-of-range random values when sampling and shuffling exam questions', () => {
+    const smallPool = bank.questions.slice(0, 3).map((question, index) => ({ ...question, priority: index ? 'minor' as const : 'critical' as const }));
+
+    expect(selectExamQuestions(smallPool, () => -1, 1)).toHaveLength(2);
+    expect(selectExamQuestions(smallPool, () => 1, 1)).toHaveLength(2);
+  });
+
   it('self-checks curriculum short answers using expected and forbidden keywords', () => {
     const shortAnswer = bank.questions.find((question) => question.type === 'short-answer');
     expect(shortAnswer?.type).toBe('short-answer');

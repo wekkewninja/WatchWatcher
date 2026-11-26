@@ -152,10 +152,32 @@ describe('HTTP function contracts', () => {
   });
 
   it('does not expose unexpected error details in production', async () => {
-    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Production');
     mocks.auth.authenticate.mockRejectedValue(new Error('internal database detail'));
     try {
       expect(await invoke('authMe')).toMatchObject({ status: 500, jsonBody: { error: { code: 'INTERNAL_ERROR', message: 'An internal error occurred' } } });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('redacts non-Error failures in the production environment', async () => {
+    vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Production');
+    mocks.auth.authenticate.mockRejectedValue('internal string failure');
+    try {
+      expect(await invoke('authMe')).toMatchObject({ status: 500, jsonBody: { error: { code: 'INTERNAL_ERROR', message: 'An internal error occurred' } } });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps actionable diagnostics in the Azure development environment', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Development');
+    mocks.auth.authenticate.mockRejectedValue(new Error('local database detail'));
+    try {
+      expect(await invoke('authMe')).toMatchObject({ status: 500, jsonBody: { error: { code: 'INTERNAL_ERROR', message: 'local database detail' } } });
     } finally {
       vi.unstubAllEnvs();
     }

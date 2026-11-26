@@ -6,6 +6,15 @@ import { ColregsPage } from './colregs.page';
 afterEach(() => vi.restoreAllMocks());
 
 describe('ColregsPage', () => {
+  it('starts a lookup during initialization', () => {
+    const page = new ColregsPage();
+    const search = vi.spyOn(page, 'search').mockResolvedValue();
+
+    page.ngOnInit();
+
+    expect(search).toHaveBeenCalledOnce();
+  });
+
   it('searches with the current query and exposes matching rules', async () => {
     const search = vi.spyOn(api, 'searchColregs').mockResolvedValue([
       { id: 'rule-5', ruleNumber: 'Rule 5' } as unknown as ColregsRule,
@@ -43,6 +52,16 @@ describe('ColregsPage', () => {
     await page.search();
 
     expect(page.error()).toBe('Reference offline');
+    expect(page.loading()).toBe(false);
+  });
+
+  it('uses fallback feedback for non-Error lookup failures', async () => {
+    vi.spyOn(api, 'searchColregs').mockRejectedValue('offline');
+    const page = new ColregsPage();
+
+    await page.search();
+
+    expect(page.error()).toBe('Try again in a moment.');
     expect(page.loading()).toBe(false);
   });
 });

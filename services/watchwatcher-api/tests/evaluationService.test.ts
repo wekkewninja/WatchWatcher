@@ -60,6 +60,8 @@ describe('GeminiEvaluationService', () => {
     const service = new GeminiEvaluationService(config);
     expect(await service.evaluate(input)).toEqual({ ...value, source: 'online' });
     expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('x-goog-api-key')).toBe('test-key');
     expect(await service.healthCheck()).toBe(true);
   });
 

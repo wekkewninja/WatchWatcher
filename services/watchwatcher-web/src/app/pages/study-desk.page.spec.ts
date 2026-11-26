@@ -85,6 +85,21 @@ describe('StudyDeskPage personalized activity', () => {
     expect(page.loading()).toBe(false);
   });
 
+  it('handles an empty topic and rule catalog without dividing by zero', async () => {
+    vi.mocked(api.getStudySnapshot).mockResolvedValueOnce({ topics: [], averageMastery: 0, atThreshold: 0, weakSpots: 0 });
+    vi.mocked(api.searchColregs).mockResolvedValueOnce([]);
+    const page = new StudyDeskPage({
+      loadAndMergeCloudProgress: async () => ({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] }),
+    } as unknown as StudentMemoryService);
+
+    await page.load();
+
+    expect(page.snapshot()).toMatchObject({ topics: [], averageMastery: 0, atThreshold: 0, weakSpots: 0 });
+    expect(page.nextRule()).toBeNull();
+    expect(page.nextRuleSummary()).toBeNull();
+    expect(page.loading()).toBe(false);
+  });
+
   it('reports successful and failed progress sync without losing local progress', async () => {
     const page = new StudyDeskPage({ syncProgress: async () => ({ syncedAt: '2026-11-22T12:00:00.000Z', revision: 1 }) } as unknown as StudentMemoryService);
     await page.syncProgress();
@@ -95,5 +110,9 @@ describe('StudyDeskPage personalized activity', () => {
     await failedPage.syncProgress();
     expect(failedPage.syncMessage()).toBe('Offline Local progress is unchanged.');
     expect(failedPage.syncing()).toBe(false);
+
+    const unknownFailurePage = new StudyDeskPage({ syncProgress: async () => { throw 'offline'; } } as unknown as StudentMemoryService);
+    await unknownFailurePage.syncProgress();
+    expect(unknownFailurePage.syncMessage()).toBe('Sync failed. Local progress is unchanged.');
   });
 });
