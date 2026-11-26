@@ -31,15 +31,23 @@ Compared the 13 WatchWatcher topics with publicly available curriculum descripti
 
 ### Crosswalk
 
-| Competency area | WatchWatcher coverage | Benchmark finding and disposition |
-| --- | --- | --- |
-| COLREGs / IRPCS, lights, sound and distress signals | Rules 1-41, Annexes I-IV; International/Inland notes | Core rules coverage is strong and directly aligned with RYA, ASA and US Sailing cruising curricula. Continue source-checking regime-specific wording and generated choices. |
-| Traditional coastal navigation | Compass, variation/deviation, DR/EP, fixes, vectors, transits, clearing bearings, chart symbols | Core is covered. Candidate additions for a future pass: chart catalog/publication use, chart corrections and Notices to Mariners, navigation logs, hand-bearing compass, running fixes, and explicit limits of GPS/AIS/radar/electronic charts. These appear in US Sailing Coastal Navigation and Bareboat/Passage Making standards. |
-| Tides and passage planning | Tidal height/clearance, stream interpolation, CTS limits, gates, bars, abort plans | Core is covered. Make local-reference data and prediction assumptions explicit; broaden route planning to include current publications, weather sources, watch plans, and contingency/refuge decisions where appropriate. |
-| Meteorology | Pressure/fronts, Buys Ballot, sea breeze, advection fog | Core introductory theory is covered. The RYA/US Sailing comparison suggests explicit forecast-source evaluation, barometer use, geography/local effects, squalls, and sea-state/wind-against-tide interpretation as candidate additions. |
-| Seamanship and vessel handling | MOB, heaving-to, anchoring, towing and emergency calls | Partial for a cruising curriculum. Practical programs separately assess sail trim, reefing, docking, close-quarters handling, line handling/knots, crew briefings, presail checks, and onboard engine/electrical/bilge systems. These are practical competencies, not automatically omissions from a written knowledge exam. |
-| Safety and emergency response | MOB, anchor scope, tow, MAYDAY/PAN-PAN, COLREG distress indications | Partial. Benchmark sources also cover grounding/refloating, fire/flood/steering/engine failure, VHF/DSC operation, flares, first aid/seasickness, emergency equipment, EPIRB/PLB/AIS beacons, and abandon-ship preparation. Triage as knowledge questions versus practical training requirements. |
-| Advanced/offshore and specialist subjects | Not a dedicated pathway | Celestial navigation, ocean routing (including great-circle/rhumb-line planning), night/watchkeeping practice, radar use, offshore survival, and specialist catamaran/dinghy endorsements appear in advanced or separate pathways. Treat these as out-of-current-scope candidates unless the product defines an offshore/specialist exam profile. |
+| Current topic ID | Benchmark finding and disposition |
+| --- | --- |
+| `colregs_steering_rules` | Covered. RYA, ASA and US Sailing cruising pathways include navigation rules and collision avoidance; continue checking keyed encounter assumptions and regional rules. |
+| `colregs_rule_19d` | Covered. Restricted-visibility rules are in scope; practical fog tactics and radar operation are candidate extensions, not evidence that the rule topic is absent. |
+| `colregs_lights_shapes` | Covered. Lights, shapes, sound and distress signals align with the cited curricula; keep International/Inland distinctions explicit. |
+| `nav_compass_leeway` | Core covered. US Sailing/ASA also teach chart references and traditional plotting; chart corrections, Notices to Mariners and navigation-log use are candidate additions. |
+| `nav_dr_ep_fixes` | Core covered. Fixes, vectors and course-to-steer are represented; running fixes, hand-bearing compass and explicit electronic-navigation limitations are not. |
+| `tides_heights_clearance` | Covered. Tidal-height and under-keel-clearance calculations align with cruising/navigation standards; keep datum and source-prediction assumptions explicit. |
+| `tides_diamonds_cts` | Covered. Set/drift, interpolation and course-to-steer limits align; future examples should use current local references and clearly state interpolation assumptions. |
+| `met_depressions_fronts` | Partial. Pressure/front concepts are present; forecast-source comparison, barometer use, squalls and local geographic effects appear in advanced cruising standards and merit review. |
+| `met_local_fog` | Partial. Sea breeze and fog formation are represented; broaden to operational fog decisions and the effect of local conditions if the chosen learner level requires them. |
+| `plan_solas_pilotage` | Partial. Passage appraisal/planning and pilotage are represented; current chart/publication checks, logkeeping, forecast sourcing and crew/watch planning need explicit disposition. |
+| `plan_tidal_gates_bars` | Covered with a regional-data limitation. Gates, bars and abort choices are represented; the report correctly defers numeric Bristol Channel/Severn examples until checked against current local sources. |
+| `emerg_mob_heavy_weather` | Partial. MOB and heavy-weather theory are present; practical recovery drills, reefing/sail handling, crew/watch management and a wider failure-response set belong in follow-up review. |
+| `emerg_anchoring_distress` | Partial. Scope, towing and MAYDAY/PAN-PAN are represented; anchor-type/dragging responses, VHF/DSC operation, safety equipment, fire/flood/steering/engine failures and first aid need explicit knowledge-versus-practical dispositions. |
+
+Across the benchmark, practical handling (sail trim, docking, line handling, equipment checks, and onboard engine/electrical/bilge systems) is assessed separately by the certification bodies. Celestial navigation, ocean routing, night watches, radar and offshore survival are advanced or specialist extensions, not automatic requirements for this knowledge Exam.
 
 ### Benchmark Conclusion
 
