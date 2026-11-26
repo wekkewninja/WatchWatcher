@@ -21,6 +21,31 @@ The Exam inventory contains COLREGs Rules 1-41, Annexes I-IV, and 13 curriculum 
 | Distress | Rule 37; Annex IV |
 | Exemptions and Convention oversight | Rules 38-41 |
 | Curriculum | 13 topics across COLREGs, navigation, tides, meteorology, passage planning, and emergencies |
+| External curriculum benchmark | RYA, American Sailing (ASA), and US Sailing public cruising/navigation standards |
+
+## External Curriculum Benchmark
+
+### Method
+
+Compared the 13 WatchWatcher topics with publicly available curriculum descriptions and standards from three established training organizations: RYA (Day Skipper theory and Yachtmaster Offshore), American Sailing / ASA (101, 103-106, and 108), and US Sailing (Basic Keelboat, Basic/Bareboat Cruising, Coastal Navigation, and Coastal Passage Making). Compare like with like: shorebased theory and exam knowledge are not equivalent to practical certification skills. For each area, classify it as covered, partial, not represented, or an advanced/specialist extension. A missing practical outcome is not by itself a factual defect in this knowledge exam.
+
+### Crosswalk
+
+| Competency area | WatchWatcher coverage | Benchmark finding and disposition |
+| --- | --- | --- |
+| COLREGs / IRPCS, lights, sound and distress signals | Rules 1-41, Annexes I-IV; International/Inland notes | Core rules coverage is strong and directly aligned with RYA, ASA and US Sailing cruising curricula. Continue source-checking regime-specific wording and generated choices. |
+| Traditional coastal navigation | Compass, variation/deviation, DR/EP, fixes, vectors, transits, clearing bearings, chart symbols | Core is covered. Candidate additions for a future pass: chart catalog/publication use, chart corrections and Notices to Mariners, navigation logs, hand-bearing compass, running fixes, and explicit limits of GPS/AIS/radar/electronic charts. These appear in US Sailing Coastal Navigation and Bareboat/Passage Making standards. |
+| Tides and passage planning | Tidal height/clearance, stream interpolation, CTS limits, gates, bars, abort plans | Core is covered. Make local-reference data and prediction assumptions explicit; broaden route planning to include current publications, weather sources, watch plans, and contingency/refuge decisions where appropriate. |
+| Meteorology | Pressure/fronts, Buys Ballot, sea breeze, advection fog | Core introductory theory is covered. The RYA/US Sailing comparison suggests explicit forecast-source evaluation, barometer use, geography/local effects, squalls, and sea-state/wind-against-tide interpretation as candidate additions. |
+| Seamanship and vessel handling | MOB, heaving-to, anchoring, towing and emergency calls | Partial for a cruising curriculum. Practical programs separately assess sail trim, reefing, docking, close-quarters handling, line handling/knots, crew briefings, presail checks, and onboard engine/electrical/bilge systems. These are practical competencies, not automatically omissions from a written knowledge exam. |
+| Safety and emergency response | MOB, anchor scope, tow, MAYDAY/PAN-PAN, COLREG distress indications | Partial. Benchmark sources also cover grounding/refloating, fire/flood/steering/engine failure, VHF/DSC operation, flares, first aid/seasickness, emergency equipment, EPIRB/PLB/AIS beacons, and abandon-ship preparation. Triage as knowledge questions versus practical training requirements. |
+| Advanced/offshore and specialist subjects | Not a dedicated pathway | Celestial navigation, ocean routing (including great-circle/rhumb-line planning), night/watchkeeping practice, radar use, offshore survival, and specialist catamaran/dinghy endorsements appear in advanced or separate pathways. Treat these as out-of-current-scope candidates unless the product defines an offshore/specialist exam profile. |
+
+### Benchmark Conclusion
+
+The current topic set has a sound core for navigation and rules-focused cruising theory, but it does not represent the full practical competence assessed by RYA Yachtmaster Offshore or the complete progression offered by ASA and US Sailing. The clearest candidate knowledge gaps are chart/publication maintenance and electronic-navigation limitations; weather-source assessment and squalls; vessel systems and failure scenarios; and a broader emergency-equipment/distress-response inventory. Add or defer each item deliberately in a follow-up scope decision; do not broaden this accuracy issue by silently turning a theory exam into a practical certification syllabus.
+
+The comparison is a breadth screen, not proof that all facts within covered topics are correct. Every topic, question, generated distractor, scenario, and answer key still needs the source-by-source review required by issue #23.
 
 ## Findings and Changes
 
@@ -55,6 +80,10 @@ The Exam inventory contains COLREGs Rules 1-41, Annexes I-IV, and 13 curriculum 
 - [RYA weather and tides](https://www.rya.org.uk/water-safety/weather-and-tides/weather-and-tides/), for forecast cross-checking, tide-prediction use, and UT/BST convention cautions.
 - [RYA navigation lights and sound signals](https://www.rya.org.uk/water-safety/passage-planning-and-navigation/navigation-lights/), for sound-appliance length thresholds and attention-light guidance.
 - [UKHO ADMIRALTY Tide Tables (NP201-208)](https://www.admiralty.co.uk/publications/publications-and-reference-guides/admiralty-tide-tables), for port tidal predictions. RYA also identifies UKHO EasyTide as a short-term prediction source.
+- [RYA Day Skipper Theory](https://www.rya.org.uk/course-finder/day-skipper-theory-course/), for the theory-course scope in chartwork, navigation, meteorology, and seamanship.
+- [RYA Yachtmaster Offshore Exam](https://www.rya.org.uk/training/certificates-of-competence/yachtmaster-offshore-exam/), for exam scope and the RYA Scheme Syllabus and Logbook (G158) reference. The public page states the exam is practical and includes skippering, boat handling, seamanship, navigation, safety awareness, IRPCS, meteorology, and signals.
+- [American Sailing certification standards](https://americansailing.com/learn-to-sail/certifications/), including [ASA 101](https://americansailing.com/certifications/asa-101-keelboat-sailing-1/), [ASA 103](https://americansailing.com/certifications/asa-103-coastal-cruising/), [ASA 104](https://americansailing.com/certifications/asa-104-bareboat-cruising/), [ASA 105](https://americansailing.com/certifications/asa-105-coastal-navigation/), [ASA 106](https://americansailing.com/certifications/asa-106-advanced-coastal-cruising/), and [ASA 108](https://americansailing.com/certifications/asa-108-offshore-passagemaking/).
+- [US Sailing Adult Certification Courses](https://www.ussailing.org/education/adult/), with published standards for [Basic Keelboat](https://www.ussailing.org/education/adult/certification-courses-endorsements/basic-keelboat/), [Basic Cruising](https://www.ussailing.org/education/adult/certification-courses-endorsements/basic-cruising/), [Bareboat Cruising](https://www.ussailing.org/education/adult/certification-courses-endorsements/bareboat-cruising/), [Coastal Navigation](https://www.ussailing.org/education/adult/certification-courses-endorsements/coastal-navigation/), and [Coastal Passage Making](https://www.ussailing.org/education/adult/certification-courses-endorsements/coastal-passage-making/).
 
 ## Limits
 
