@@ -3,6 +3,9 @@ import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthStateService } from '../core/auth-state.service';
+import { emptyProgressSnapshot } from '../core/student-memory.service';
+import type { ExamSession } from '../domain-types';
+import { StudentMemoryService } from '../core/student-memory.service';
 import { ExaminerAiService } from '../core/services/examiner-ai.service';
 import type { AssessmentBank, AssessmentQuestion } from '../core/services/assessment-question-bank';
 import { AssessmentQuestionBankService } from '../core/services/assessment-question-bank.service';
@@ -49,11 +52,19 @@ const bank: AssessmentBank = {
 describe('AssessmentExamPage', () => {
   const auth = { user: signal<{ id: string } | null>({ id: 'account-a' }), cloudAuth: signal('authenticated'), accountGeneration: 1 };
   const evaluate = vi.fn();
+  const memory = {
+    loadProgress: vi.fn(),
+    recordExamSession: vi.fn(),
+    deleteExamHistory: vi.fn(),
+  };
   beforeEach(async () => {
     auth.user.set({ id: 'account-a' });
     auth.cloudAuth.set('authenticated');
     auth.accountGeneration = 1;
     evaluate.mockReset().mockResolvedValue({ passed: true, source: 'online', feedback: 'Correct.' });
+    memory.loadProgress.mockReset().mockResolvedValue(null);
+    memory.recordExamSession.mockReset().mockImplementation(async (session: ExamSession) => ({ ...emptyProgressSnapshot(), examSessions: [session] }));
+    memory.deleteExamHistory.mockReset().mockResolvedValue(emptyProgressSnapshot());
     vi.spyOn(Math, 'random').mockReturnValue(0.99);
     await TestBed.configureTestingModule({
       imports: [AssessmentExamPage],
@@ -62,16 +73,17 @@ describe('AssessmentExamPage', () => {
         { provide: AssessmentQuestionBankService, useValue: { loadBank: async () => bank } },
         { provide: AuthStateService, useValue: auth },
         { provide: ExaminerAiService, useValue: { evaluateFreeText: evaluate } },
+        { provide: StudentMemoryService, useValue: memory },
       ],
     }).compileComponents();
   });
 
   afterEach(() => { TestBed.resetTestingModule(); vi.restoreAllMocks(); });
 
-  it('includes Critical questions and checks both choice and curriculum answers', async () => {
+  it('keeps checked answers private until completion, then saves and displays the exam result', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
@@ -90,7 +102,10 @@ describe('AssessmentExamPage', () => {
     fixture.detectChanges();
     (Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.includes('Check answer')) as HTMLButtonElement).click();
     fixture.detectChanges();
-    expect(host.querySelector('.exam-feedback')?.textContent).toContain('Correct');
+    expect(host.querySelector('.exam-feedback')).toBeNull();
+    expect(correctOption.disabled).toBe(true);
+    fixture.componentInstance.setResponse('b');
+    expect(fixture.componentInstance.response()).toBe('a');
 
     const nextButton = Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.includes('Next')) as HTMLButtonElement;
     nextButton.click();
@@ -112,19 +127,22 @@ describe('AssessmentExamPage', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(evaluate).toHaveBeenCalledWith(expect.objectContaining({ topicId: curriculumQuestion.sectionId, answer: response.value, onlineConsent: true }));
-    expect(host.querySelector('.exam-feedback')?.textContent).toContain('Correct');
+    expect(host.querySelector('.exam-feedback')).toBeNull();
 
     const finishButton = Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.includes('Finish exam')) as HTMLButtonElement;
     finishButton.click();
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(host.textContent).toContain('Exam complete');
-    expect(host.textContent).toContain('2 of 2 answered questions correct');
+    expect(host.textContent).toContain('Exam score: 100%');
+    expect(host.textContent).toContain('Passed');
+    expect(memory.recordExamSession).toHaveBeenCalledWith(expect.objectContaining({ score: 100, passed: true, criticalGatePassed: true }));
   });
 
   it('offers ungraded offline continuation without contacting the evaluator', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
     const page = fixture.componentInstance;
     page.beginExam();
     page.currentIndex.set(1);
@@ -135,13 +153,70 @@ describe('AssessmentExamPage', () => {
     fixture.detectChanges();
     expect(evaluate).not.toHaveBeenCalled();
     expect(page.currentResult()?.correct).toBeNull();
-    expect(page.checkedCount()).toBe(0);
+    expect(page.scorePercent()).toBe(0);
+    expect(page.examPassed()).toBe(false);
+  });
+
+  it('fails the Critical gate even when the percentage score reaches 85%', async () => {
+    const fixture = TestBed.createComponent(AssessmentExamPage);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+    const page = fixture.componentInstance;
+    const secondCritical = { ...criticalQuestion, id: 'critical-second', coverageIds: ['critical-second-objective'], prompt: 'Second Critical question?' };
+    const supplemental = Array.from({ length: 5 }, (_value, index) => ({ ...criticalQuestion, id: `major-${index}`, coverageIds: [`major-${index}-objective`], priority: 'major' as const }));
+    const questions = [criticalQuestion, secondCritical, ...supplemental];
+    page.questions.set(questions);
+    page.results.set(Object.fromEntries(questions.map((question, index) => [question.id, index !== 1])));
+    page.currentIndex.set(questions.length - 1);
+
+    expect(page.scorePercent()).toBeGreaterThanOrEqual(85);
+    expect(page.criticalGatePassed()).toBe(false);
+    await page.finishExam();
+
+    expect(page.completedSession()?.passed).toBe(false);
+    expect(page.completedSession()?.criticalGatePassed).toBe(false);
+  });
+
+  it('reviews saved missed answers and confirms deletion of exam history', async () => {
+    const saved: ExamSession = {
+      id: '32f63760-6b39-4f06-935e-430251d1b785',
+      startedAt: '2026-11-22T12:00:00.000Z',
+      completedAt: '2026-11-22T12:05:00.000Z',
+      questionResults: [{ questionId: criticalQuestion.id, topicId: criticalQuestion.sectionId, objectiveIds: criticalQuestion.coverageIds, priority: 'critical', submittedAnswer: 'b', correct: false }],
+      score: 0,
+      passed: false,
+      criticalGatePassed: false,
+    };
+    memory.loadProgress.mockResolvedValue({ ...emptyProgressSnapshot(), examSessions: [saved] });
+    const fixture = TestBed.createComponent(AssessmentExamPage);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Exam history');
+
+    (Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.includes('Review result')) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Ignore traffic.');
+    expect(host.textContent).toContain('Keep a proper lookout.');
+    expect(host.textContent).toContain('Maintain an effective lookout.');
+
+    (Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.includes('Delete history')) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Delete all saved exam sessions and submitted answers');
+    (Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.includes('Delete saved exams')) as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(memory.deleteExamHistory).toHaveBeenCalledOnce();
+    expect(fixture.componentInstance.savedSessions()).toEqual([]);
+    expect(fixture.componentInstance.finished()).toBe(false);
   });
 
   it('invalidates consent and ignores late results after an account switch', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
     const page = fixture.componentInstance;
     page.beginExam();
     page.currentIndex.set(1);
@@ -170,7 +245,7 @@ describe('AssessmentExamPage', () => {
   it('shows an error and requires fresh consent after an online failure', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
     const page = fixture.componentInstance;
     page.beginExam();
     page.currentIndex.set(1);
@@ -188,7 +263,7 @@ describe('AssessmentExamPage', () => {
   it('shows actionable oversize feedback and never invokes the evaluator', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
     const page = fixture.componentInstance;
     page.beginExam();
     page.currentIndex.set(1);
@@ -209,7 +284,7 @@ describe('AssessmentExamPage', () => {
   it('distinguishes invalid input from an unavailable provider', async () => {
     const fixture = TestBed.createComponent(AssessmentExamPage);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
     const page = fixture.componentInstance;
     page.beginExam();
     page.currentIndex.set(1);

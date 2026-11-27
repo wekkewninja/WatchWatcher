@@ -17,6 +17,10 @@ export interface ProgressSnapshot {
   weakSpotLog: Array<{ topicId: string; tag: string; timestamp: string }>;
   drillQueue: string[];
   ruleExerciseAttempts: RuleExerciseAttempt[];
+  objectivePracticeAttempts?: ObjectivePracticeAttempt[];
+  examSessions?: ExamSession[];
+  deletedExamSessionIds?: string[];
+  examHistoryDeletedAt?: string | null;
 }
 
 export interface RuleExerciseAttempt {
@@ -25,6 +29,37 @@ export interface RuleExerciseAttempt {
   selectedOptionId: string;
   correct: boolean;
   attemptedAt: string;
+}
+
+export interface ObjectivePracticeAttempt {
+  id: string;
+  questionId: string;
+  topicId: string;
+  objectiveIds: string[];
+  correct: boolean;
+  attemptedAt: string;
+}
+
+export type AssessmentPriority = 'critical' | 'major' | 'minor';
+
+export interface ExamQuestionResult {
+  questionId: string;
+  topicId: string;
+  objectiveIds: string[];
+  priority: AssessmentPriority;
+  submittedAnswer: string;
+  correct: boolean | null;
+  feedback?: string;
+}
+
+export interface ExamSession {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  questionResults: ExamQuestionResult[];
+  score: number;
+  passed: boolean;
+  criticalGatePassed: boolean;
 }
 
 export interface StoredProgress extends ProgressSnapshot {

@@ -19,12 +19,12 @@ import { LocaleService, TranslationPipe } from '../core/locale.service';
           <legend>{{ 'exercise.answerChoices' | t }}</legend>
           @for (option of rule().exercise.options; track option.id) {
             <label [class.selected]="selectedOption() === option.id">
-              <input type="radio" [name]="'exercise-' + rule().id" [value]="option.id" [checked]="selectedOption() === option.id" (change)="selectOption(option.id)">
+              <input type="radio" [name]="'exercise-' + rule().id" [value]="option.id" [checked]="selectedOption() === option.id" [disabled]="saving() || (exerciseChecked() && !saveFailed())" (change)="selectOption(option.id)">
               <span>{{ option.text }}</span>
             </label>
           }
         </fieldset>
-        <button mat-flat-button type="button" [disabled]="!selectedOption() || saving()" (click)="checkAnswer()">
+        <button mat-flat-button type="button" [disabled]="!selectedOption() || saving() || (exerciseChecked() && !saveFailed())" (click)="checkAnswer()">
           <mat-icon>{{ saving() ? 'hourglass_top' : 'task_alt' }}</mat-icon>{{ (saving() ? 'exercise.saving' : 'exercise.checkAnswer') | t }}
         </button>
         @if (summary().attempts) { <p class="exercise-history">{{ (summary().completed ? 'exercise.historyCompleted' : 'exercise.historyInProgress') | t: { count: summary().attempts, mastery: summary().mastery } }}</p> }
@@ -49,6 +49,7 @@ export class ColregsExerciseCardComponent implements OnChanges {
   readonly selectedOption = signal<string | null>(null);
   readonly exerciseChecked = signal(false);
   readonly saving = signal(false);
+  readonly saveFailed = signal(false);
   readonly error = signal('');
   readonly summary = signal<RuleExerciseSummary>({ attempts: 0, correctAttempts: 0, completed: false, mastery: 0, lastAttemptAt: null });
 
@@ -57,13 +58,16 @@ export class ColregsExerciseCardComponent implements OnChanges {
   ngOnChanges(): void {
     this.selectedOption.set(null);
     this.exerciseChecked.set(false);
+    this.saveFailed.set(false);
     this.error.set('');
     void this.loadSummary();
   }
 
   selectOption(optionId: string): void {
+    if (this.exerciseChecked() && !this.saveFailed()) return;
     this.selectedOption.set(optionId);
     this.exerciseChecked.set(false);
+    this.saveFailed.set(false);
     this.error.set('');
   }
 
@@ -73,15 +77,17 @@ export class ColregsExerciseCardComponent implements OnChanges {
 
   async checkAnswer(): Promise<void> {
     const selected = this.selectedOption();
-    if (!selected) return;
+    if (!selected || (this.exerciseChecked() && !this.saveFailed())) return;
     this.saving.set(true);
     this.error.set('');
+    this.saveFailed.set(false);
     const rule = this.rule();
     try {
       const progress = await this.memory.recordRuleExerciseAttempt(rule.id, selected, rule.exercise.answer);
       this.summary.set(summarizeRuleExercise(rule.id, progress));
       this.progressChanged.emit(progress);
     } catch (error) {
+      this.saveFailed.set(true);
       this.error.set(error instanceof Error ? this.locales.translate('exercise.saveFailed', { message: error.message }) : this.locales.translate('exercise.saveFailedGeneric'));
     } finally {
       this.exerciseChecked.set(true);

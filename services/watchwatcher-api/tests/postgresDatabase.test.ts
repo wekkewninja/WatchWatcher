@@ -44,6 +44,10 @@ describe('PostgresDatabaseService exercise progress', () => {
       weak_spot_log: [],
       drill_queue: [],
       rule_exercise_attempts: attempts,
+      objective_practice_attempts: [],
+      exam_sessions: [],
+      deleted_exam_session_ids: [],
+      exam_history_deleted_at: null,
       revision: 3,
       synced_at: new Date('2026-11-22T12:01:00.000Z'),
     }] });
@@ -54,6 +58,9 @@ describe('PostgresDatabaseService exercise progress', () => {
     expect(query.mock.calls[0]?.[0]).toContain('WHERE account_id = $1');
     expect(query.mock.calls[0]?.[1]).toEqual(['account-a']);
     expect(progress?.ruleExerciseAttempts).toEqual(attempts);
+    expect(progress?.objectivePracticeAttempts).toEqual([]);
+    expect(progress?.examSessions).toEqual([]);
+    expect(progress?.examHistoryDeletedAt).toBeNull();
     expect(progress?.accountId).toBe('account-a');
   });
 
@@ -76,7 +83,11 @@ describe('PostgresDatabaseService exercise progress', () => {
     }, 3);
 
     expect(query.mock.calls[0]?.[0]).toContain('rule_exercise_attempts = $5::jsonb');
-    expect(query.mock.calls[0]?.[1]).toEqual(['account-b', '{}', '[]', '["rule-5"]', JSON.stringify(attempts), 3]);
+    expect(query.mock.calls[0]?.[0]).toContain('objective_practice_attempts = $6::jsonb');
+    expect(query.mock.calls[0]?.[0]).toContain('exam_sessions = $7::jsonb');
+    expect(query.mock.calls[0]?.[0]).toContain('deleted_exam_session_ids = $8::jsonb');
+    expect(query.mock.calls[0]?.[0]).toContain('exam_history_deleted_at = $9::timestamptz');
+    expect(query.mock.calls[0]?.[1]).toEqual(['account-b', '{}', '[]', '["rule-5"]', JSON.stringify(attempts), '[]', '[]', '[]', null, 3]);
   });
 });
 

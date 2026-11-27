@@ -58,6 +58,10 @@ describe('ColregsExerciseCardComponent', () => {
 
     expect(memory.recordRuleExerciseAttempt).toHaveBeenCalledWith('rule-5', 'wrong', 'right');
     expect(fixture.componentInstance.exerciseChecked()).toBe(true);
+    fixture.componentInstance.selectOption('right');
+    await fixture.componentInstance.checkAnswer();
+    expect(fixture.componentInstance.selectedOption()).toBe('wrong');
+    expect(memory.recordRuleExerciseAttempt).toHaveBeenCalledOnce();
     expect(fixture.componentInstance.summary().attempts).toBe(1);
     expect(fixture.componentInstance.saving()).toBe(false);
     expect(emitted).toHaveBeenCalledWith(progress);

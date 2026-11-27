@@ -43,6 +43,32 @@ export const progressSnapshotSchema = z.object({
     correct: z.boolean(),
     attemptedAt: z.string().datetime(),
   }).strict()).max(10000).default([]),
+  objectivePracticeAttempts: z.array(z.object({
+    id: z.string().uuid(),
+    questionId: z.string().min(1).max(160),
+    topicId: z.string().min(1).max(120),
+    objectiveIds: z.array(z.string().min(1).max(160)).max(100),
+    correct: z.boolean(),
+    attemptedAt: z.string().datetime(),
+  }).strict()).max(10000).default([]),
+  examSessions: z.array(z.object({
+    id: z.string().uuid(),
+    startedAt: z.string().datetime(),
+    completedAt: z.string().datetime(),
+    questionResults: z.array(z.object({
+      questionId: z.string().min(1).max(160),
+      topicId: z.string().min(1).max(120),
+      objectiveIds: z.array(z.string().min(1).max(160)).max(100),
+      priority: z.enum(['critical', 'major', 'minor']),
+      submittedAnswer: z.string().max(12000),
+      correct: z.boolean().nullable(),
+    }).strict()).min(1).max(250),
+    score: z.number().min(0).max(100),
+    passed: z.boolean(),
+    criticalGatePassed: z.boolean(),
+  }).strict()).max(10000).default([]),
+  deletedExamSessionIds: z.array(z.string().uuid()).max(10000).default([]),
+  examHistoryDeletedAt: z.string().datetime().nullable().default(null),
 }).strict();
 
 export const progressSyncSchema = progressSnapshotSchema.extend({

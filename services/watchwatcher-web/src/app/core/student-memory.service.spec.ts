@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { AuthStateService } from './auth-state.service';
 import { emptyProgressSnapshot, mergeProgressSnapshots, selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise } from './student-memory.service';
 import { StorageRepository } from './storage-repository.service';
-import type { ColregsRule, EvaluationResult, ProgressSnapshot } from '../domain-types';
+import type { ColregsRule, ExamSession, ProgressSnapshot } from '../domain-types';
 
 function rule(id: string, ruleNumber: string): ColregsRule {
   return {
@@ -222,6 +222,10 @@ describe('StudentMemoryService rule exercise progress', () => {
       weakSpotLog: [remote.weakSpotLog[1], local.weakSpotLog[0]],
       drillQueue: ['local', 'shared', 'remote'],
       ruleExerciseAttempts: [remote.ruleExerciseAttempts[0], local.ruleExerciseAttempts[0]],
+      objectivePracticeAttempts: [],
+      examSessions: [],
+      deletedExamSessionIds: [],
+      examHistoryDeletedAt: null,
     });
   });
 
@@ -235,37 +239,79 @@ describe('StudentMemoryService rule exercise progress', () => {
     });
   });
 
-  it('updates topic mastery and adds misconception remediation to progress', async () => {
+  it('stores objective practice separately and prevents deleted exams returning from a merge', async () => {
     const account = memoryFor('account-a');
-    const initial: ProgressSnapshot = { ...emptyProgressSnapshot(), topicMastery: { topic: 50 }, drillQueue: ['existing'] };
-    await new StorageRepository().saveProgress('account-a', initial);
-    const evaluation: EvaluationResult = {
-      score: 0.8,
-      feedback: 'Review the response.',
-      misconceptionTag: 'rule-confusion',
-      followUpDrill: 'Review Rule 1.',
-      source: 'offline',
+    const attempt = await account.recordObjectivePracticeAttempt({ questionId: 'topic-question', topicId: 'topic', objectiveIds: ['objective-a'], correct: true });
+    const session: ExamSession = {
+      id: '32f63760-6b39-4f06-935e-430251d1b785',
+      startedAt: '2026-11-22T12:00:00.000Z',
+      completedAt: '2026-11-22T12:05:00.000Z',
+      questionResults: [{ questionId: 'exam-question', topicId: 'topic', objectiveIds: ['objective-b'], priority: 'critical', submittedAnswer: 'Answer', correct: true }],
+      score: 100,
       passed: true,
+      criticalGatePassed: true,
     };
+    await account.recordExamSession(session);
+    const deleted = await account.deleteExamHistory();
+    const unseenRemoteSession = { ...session, id: '32f63760-6b39-4f06-935e-430251d1b786', completedAt: new Date(Date.parse(deleted?.examHistoryDeletedAt ?? '') - 1000).toISOString() };
+    const merged = mergeProgressSnapshots(deleted!, { ...emptyProgressSnapshot(), examSessions: [session, unseenRemoteSession] });
 
-    await account.recordEvaluation('topic', evaluation, 20);
-    const updated = await account.loadProgress();
-    expect(updated?.topicMastery['topic']).toBe(59);
-    expect(updated?.weakSpotLog[0]).toMatchObject({ topicId: 'topic', tag: 'rule-confusion' });
-    expect(updated?.drillQueue).toEqual(['topic', 'existing']);
+    expect((await account.loadProgress())?.objectivePracticeAttempts).toEqual([attempt]);
+    expect(deleted?.examSessions).toEqual([]);
+    expect(deleted?.deletedExamSessionIds).toContain(session.id);
+    expect(deleted?.examHistoryDeletedAt).toBeTruthy();
+    expect(merged.examSessions).toEqual([]);
   });
 
-  it('records an evaluation without creating a weak spot when there is no misconception', async () => {
-    const account = memoryFor('account-a');
-    await account.recordEvaluation('new-topic', {
-      score: 0.5,
-      feedback: 'Keep practicing.',
-      misconceptionTag: null,
-      followUpDrill: 'Continue.',
-      source: 'offline',
-      passed: false,
-    }, 20);
-    expect(await account.loadProgress()).toMatchObject({ topicMastery: { 'new-topic': 29 }, weakSpotLog: [], drillQueue: [] });
+  it('syncs an offline history clear without restoring unseen remote exams', async () => {
+    const owner = { id: 'history-clear-owner', name: 'Sailor', email: 'clear@example.test' };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ accountId: owner.id, session: 'clear-token', user: owner }), { status: 200 })));
+    await api.login({ email: owner.email, password: 'a-valid-password' });
+    const storage = new StorageRepository();
+    const exam: ExamSession = {
+      id: '32f63760-6b39-4f06-935e-430251d1b787',
+      startedAt: new Date(Date.now() - 120000).toISOString(),
+      completedAt: new Date(Date.now() - 60000).toISOString(),
+      questionResults: [{ questionId: 'old-q', topicId: 'topic', objectiveIds: ['objective'], priority: 'critical', submittedAnswer: 'Answer', correct: true }],
+      score: 100,
+      passed: true,
+      criticalGatePassed: true,
+    };
+    const clearAt = new Date().toISOString();
+    await storage.saveProgress(owner.id, { ...emptyProgressSnapshot(), examHistoryDeletedAt: clearAt });
+    vi.spyOn(api, 'getProgress').mockResolvedValue({ ...emptyProgressSnapshot(), examSessions: [exam] });
+    const sync = vi.spyOn(api, 'syncProgress').mockResolvedValue({ revision: 2, syncedAt: new Date().toISOString() });
+    const memory = new StudentMemoryService(storage, { user: () => owner, accountGeneration: 1 } as unknown as AuthStateService);
+
+    const merged = await memory.loadAndMergeCloudProgress();
+
+    expect(merged.examSessions).toEqual([]);
+    expect(merged.examHistoryDeletedAt).toBe(clearAt);
+    expect(sync).toHaveBeenCalledWith(expect.objectContaining({ examSessions: [], examHistoryDeletedAt: clearAt }));
+  });
+
+  it('merges remote exam history before a background exam save', async () => {
+    const owner = { id: 'exam-merge-owner', name: 'Sailor', email: 'exam-merge@example.test' };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ accountId: owner.id, session: 'exam-merge-token', user: owner }), { status: 200 })));
+    await api.login({ email: owner.email, password: 'a-valid-password' });
+    const remoteExam: ExamSession = {
+      id: '32f63760-6b39-4f06-935e-430251d1b788', startedAt: '2026-11-25T10:00:00.000Z', completedAt: '2026-11-25T10:05:00.000Z',
+      questionResults: [{ questionId: 'remote-q', topicId: 'topic', objectiveIds: ['remote-objective'], priority: 'critical', submittedAnswer: 'remote', correct: true }],
+      score: 100, passed: true, criticalGatePassed: true,
+    };
+    const localExam: ExamSession = {
+      id: '32f63760-6b39-4f06-935e-430251d1b789', startedAt: '2026-11-26T10:00:00.000Z', completedAt: '2026-11-26T10:05:00.000Z',
+      questionResults: [{ questionId: 'local-q', topicId: 'topic', objectiveIds: ['local-objective'], priority: 'major', submittedAnswer: 'local', correct: true }],
+      score: 100, passed: true, criticalGatePassed: true,
+    };
+    vi.spyOn(api, 'getProgress').mockResolvedValue({ ...emptyProgressSnapshot(), examSessions: [remoteExam] });
+    const sync = vi.spyOn(api, 'syncProgress').mockResolvedValue({ revision: 2, syncedAt: new Date().toISOString() });
+    const memory = new StudentMemoryService(new StorageRepository(), { user: () => owner, accountGeneration: 1 } as unknown as AuthStateService);
+
+    await memory.recordExamSession(localExam);
+    await vi.waitFor(() => expect(sync).toHaveBeenCalledOnce());
+
+    expect(sync).toHaveBeenCalledWith(expect.objectContaining({ examSessions: expect.arrayContaining([remoteExam, localExam]) }));
   });
 
   it('loads local progress when cloud access is unavailable and rejects sync without a matching account', async () => {

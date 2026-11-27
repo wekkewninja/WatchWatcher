@@ -58,7 +58,7 @@ describe('ColregsRulePage practice exercise', () => {
     TestBed.resetTestingModule();
   });
 
-  it('shows remediation for an incorrect choice and success feedback for the correct choice', async () => {
+  it('shows remediation for an incorrect choice and prevents immediate resubmission', async () => {
     const fixture = TestBed.createComponent(ColregsRulePage);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -80,14 +80,33 @@ describe('ColregsRulePage practice exercise', () => {
     expect(recordAttempt).toHaveBeenNthCalledWith(1, 'rule-1', 'a', 'b');
 
     const correctOption = host.querySelector('input[value="b"]') as HTMLInputElement;
+    expect(correctOption.disabled).toBe(true);
     correctOption.click();
     fixture.detectChanges();
+    expect(incorrectOption.checked).toBe(true);
+    expect(correctOption.checked).toBe(false);
+    expect(checkButton.disabled).toBe(true);
     checkButton.click();
     await fixture.whenStable();
+    expect(recordAttempt).toHaveBeenCalledOnce();
+  });
+
+  it('shows success feedback for a correct first answer', async () => {
+    const fixture = TestBed.createComponent(ColregsRulePage);
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const correctOption = host.querySelector('input[value="b"]') as HTMLInputElement;
+    correctOption.click();
+    fixture.detectChanges();
+    (host.querySelector('.rule-practice-card button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
     expect(host.querySelector('.exercise-feedback')?.classList.contains('correct')).toBe(true);
     expect(host.querySelector('.exercise-feedback')?.textContent).toContain(practiceRule.exercise.explanation);
-    expect(recordAttempt).toHaveBeenNthCalledWith(2, 'rule-1', 'b', 'b');
+    expect(recordAttempt).toHaveBeenCalledWith('rule-1', 'b', 'b');
   });
 
   it('keeps official wording collapsed and switches between International and Inland variants', async () => {
