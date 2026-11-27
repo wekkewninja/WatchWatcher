@@ -1,12 +1,15 @@
+x-azurite-functions-connection: &azurite-functions-connection "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzWQB3Ew4eyAUJjHfIXztsR8zYjY2b7R6f6J2bUuDA==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1"
+x-azurite-sdk-connection: &azurite-sdk-connection "UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite:10000"
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-watchwatcher}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-watchwatcher}
+      POSTGRES_DB: ${POSTGRES_DB:-watchwatcher}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,27 +18,69 @@ services:
       timeout: 3s
       retries: 10
   db-migrate:
-    image: node:22-slim
-    working_dir: /app
+    build:
+      context: .
+      dockerfile: services/watchwatcher-api/Dockerfile.local
+      target: migrator
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./:/app:ro
-      - ./node_modules:/app/node_modules:ro
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    command: ["npm", "--prefix", "services/watchwatcher-api", "run", "migrate"]
+      DATABASE_URL: postgresql://${POSTGRES_USER:-watchwatcher}:${POSTGRES_PASSWORD:-watchwatcher}@postgres:5432/${POSTGRES_DB:-watchwatcher}
     restart: "no"
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
     ports:
-      - "10000:10000"
-      - "10001:10001"
-      - "10002:10002"
+      - "127.0.0.1:10000:10000"
+      - "127.0.0.1:10001:10001"
+      - "127.0.0.1:10002:10002"
     volumes:
       - azurite_data:/data
+  api:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: services/watchwatcher-api/Dockerfile.local
+      target: api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      AzureWebJobsStorage: *azurite-functions-connection
+      AZURE_FUNCTIONS_ENVIRONMENT: Development
+      AZURITE_CONNECTION_STRING: *azurite-sdk-connection
+      DATABASE_URL: postgresql://${POSTGRES_USER:-watchwatcher}:${POSTGRES_PASSWORD:-watchwatcher}@postgres:5432/${POSTGRES_DB:-watchwatcher}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      RATE_LIMIT_SECRET: ${RATE_LIMIT_SECRET:?Set RATE_LIMIT_SECRET in .env}
+      JWT_ISSUER: ${JWT_ISSUER:-watchwatcher-api}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-watchwatcher-app}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-7072}:80"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+  web:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: services/watchwatcher-web/Dockerfile.local
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NG_CLI_ANALYTICS: "false"
+    ports:
+      - "127.0.0.1:${WEB_HOST_PORT:-4201}:4200"
 volumes:
   postgres_data:
   azurite_data:

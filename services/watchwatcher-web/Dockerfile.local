@@ -1,0 +1,15 @@
+FROM node:22.22.3-bookworm-slim
+
+WORKDIR /workspace
+COPY package.json package-lock.json ./
+COPY services/shared/package.json services/shared/package.json
+COPY services/watchwatcher-api/package.json services/watchwatcher-api/package.json
+COPY services/watchwatcher-web/package.json services/watchwatcher-web/package.json
+RUN npm ci
+RUN sass_version="$(node -p "require('./package-lock.json').packages['services/watchwatcher-web/node_modules/sass-embedded'].version")" \
+	&& npm install --no-save --package-lock=false --workspace services/watchwatcher-web "sass-embedded-linux-x64@${sass_version}"
+COPY services/shared/ services/shared/
+COPY services/watchwatcher-web/ services/watchwatcher-web/
+WORKDIR /workspace/services/watchwatcher-web
+EXPOSE 4200
+CMD ["npm", "run", "start", "--", "--port", "4200", "--proxy-config", "proxy.docker.conf.json"]
