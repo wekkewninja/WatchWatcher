@@ -43,6 +43,33 @@ describe('App', () => {
     expect(compiled.querySelector('.brand-lockup')?.textContent).toContain('WatchWatcher');
   });
 
+  it('opens account settings from the profile name and avatar', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [provideRouter([{ path: 'account', component: LoadedAccountPage }])],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(App);
+    const auth = TestBed.inject(AuthStateService);
+    await auth.initialization;
+    auth.user.set({ id: 'profile-owner', name: 'Sailor', email: 'sailor@example.test' });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const profile = element.querySelector('a[aria-label="Account settings for Sailor"]') as HTMLAnchorElement;
+    expect(profile.getAttribute('href')).toBe('/account');
+    expect(profile.textContent).toContain('Sailor');
+    expect(profile.querySelector('.user-avatar')?.textContent).toBe('S');
+    expect(element.querySelectorAll('a[href="/account"]')).toHaveLength(1);
+    profile.focus();
+    expect(document.activeElement).toBe(profile);
+    (profile.querySelector('.user-avatar') as HTMLElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/account');
+    expect(element.textContent).toContain('Private loaded account data');
+  });
+
   it('shows an unresolved deletion after reload without claiming local data was erased', async () => {
     localStorage.setItem('watchwatcher-deletion-intent:account-a', 'pending');
     localStorage.setItem('watchwatcher-signed-out', 'true');
