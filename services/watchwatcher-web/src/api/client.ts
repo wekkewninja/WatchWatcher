@@ -58,6 +58,7 @@ interface ColregsOfficialTextAsset {
 let sessionToken: string | null = null;
 let sessionAccountId: string | null = null;
 let cloudRevision: number | null = null;
+let sessionGeneration = 0;
 let curriculumPromise: Promise<CurriculumAsset> | null = null;
 let colregsPromise: Promise<ColregsAsset> | null = null;
 let colregsOfficialTextPromise: Promise<ColregsOfficialTextAsset> | null = null;
@@ -328,7 +329,8 @@ function sessionRequest(input: AccountInput | Credentials): RequestInit {
   return { method: 'POST', body: JSON.stringify(input) };
 }
 
-function acceptSession(value: unknown): PublicAccount {
+function acceptSession(value: unknown, generation: number): PublicAccount {
+  if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
   const result = parseSession(value);
   sessionToken = result.session;
   sessionAccountId = result.accountId;
@@ -346,10 +348,12 @@ export const liveClient: ApiClient = {
     return parseAccount(result['user']);
   },
   async createAccount(input: AccountInput) {
-    return acceptSession(await request('/auth/register', sessionRequest(input)));
+    const generation = ++sessionGeneration;
+    return acceptSession(await request('/auth/register', sessionRequest(input)), generation);
   },
   async login(credentials: Credentials) {
-    return acceptSession(await request('/auth/login', sessionRequest(credentials)));
+    const generation = ++sessionGeneration;
+    return acceptSession(await request('/auth/login', sessionRequest(credentials)), generation);
   },
   async getGoogleClientId(): Promise<string> {
     const result = object(await request('/auth/google/config'), 'Google sign-in configuration');
@@ -364,10 +368,12 @@ export const liveClient: ApiClient = {
     };
   },
   async googleSignIn(input: GoogleSignInInput): Promise<GoogleSignInResult> {
+    const generation = ++sessionGeneration;
     try {
-      const user = acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }));
+      const user = acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }), generation);
       return { kind: 'authenticated', user };
     } catch (error) {
+      if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
       if (error instanceof ApiError && error.status === 409 && error.code === 'CONFLICT') {
         const details = typeof error.details === 'object' && error.details !== null ? error.details as Record<string, unknown> : {};
         if (details['reason'] === 'GOOGLE_ACCOUNT_LINK_REQUIRED') {
@@ -378,6 +384,7 @@ export const liveClient: ApiClient = {
     }
   },
   async logout() {
+    sessionGeneration++;
     sessionToken = null;
     sessionAccountId = null;
     cloudRevision = null;

@@ -64,6 +64,24 @@ describe('AuthStateService', () => {
     expect(auth.user()).toBeNull();
   });
 
+  it('does not let a stale startup response clear a newer login', async () => {
+    let finishRestore!: (response: Response) => void;
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(fetchResponse(sessionResponse()))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishRestore = resolve; }))
+      .mockResolvedValueOnce(fetchResponse(sessionResponse()));
+    vi.stubGlobal('fetch', fetchMock);
+    await api.login({ email: sailor.email, password: 'password' });
+    const auth = new AuthStateService();
+
+    await auth.login(sailor.email, 'password');
+    finishRestore(fetchResponse({ user: sailor }));
+    await auth.initialization;
+
+    expect(auth.user()).toEqual(sailor);
+    expect(localStorage.getItem('watchwatcher-signed-out')).toBeNull();
+  });
+
   it('sets the user and clears the signed-out marker after login or account creation', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(fetchResponse(sessionResponse()))
@@ -115,5 +133,23 @@ describe('AuthStateService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(localStorage.getItem('watchwatcher-signed-out')).toBe('true');
     expect(auth.user()).toBeNull();
+  });
+
+  it('clears the user immediately when a subsequent login fails', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(fetchResponse(sessionResponse()))
+      .mockResolvedValueOnce(fetchResponse({ user: sailor }))
+      .mockResolvedValueOnce(fetchResponse({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials.' } }, 401));
+    vi.stubGlobal('fetch', fetchMock);
+    await api.login({ email: sailor.email, password: 'password' });
+    const auth = new AuthStateService();
+    await auth.initialization;
+
+    const logout = auth.logout();
+    const login = auth.login('other@example.test', 'wrong-password');
+    await logout;
+    await expect(login).rejects.toThrow();
+    expect(auth.user()).toBeNull();
+    expect(localStorage.getItem('watchwatcher-signed-out')).toBe('true');
   });
 });

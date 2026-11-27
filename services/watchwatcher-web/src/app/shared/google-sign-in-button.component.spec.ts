@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../api';
+import { AuthStateService } from '../core/auth-state.service';
 import { GoogleSignInButtonComponent } from './google-sign-in-button.component';
 
 describe('GoogleSignInButtonComponent', () => {
@@ -46,5 +47,19 @@ describe('GoogleSignInButtonComponent', () => {
     credentialCallback?.({ credential: 'signed-id-token' });
 
     expect(received).toEqual([{ credential: 'signed-id-token', challengeId: '4a3eea85-72f6-4f90-a045-cf8fc2d83ff4' }]);
+  });
+
+  it('rejects credentials returned after logout', async () => {
+    const fixture = TestBed.createComponent(GoogleSignInButtonComponent);
+    const received = vi.fn();
+    fixture.componentInstance.signedIn.subscribe(received);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(renderButton).toHaveBeenCalledOnce());
+
+    await TestBed.inject(AuthStateService).logout();
+    credentialCallback?.({ credential: 'signed-id-token' });
+
+    expect(received).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.error()).toBe('Account changed. Retry Google sign-in.');
   });
 });

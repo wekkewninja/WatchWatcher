@@ -115,6 +115,31 @@ describe('HTTP function contracts', () => {
     expect(await invoke('syncProgress', request({ ...snapshot, revision: -1 }))).toMatchObject({ status: 422 });
   });
 
+  it('isolates two accounts and rejects account substitution and stale sessions', async () => {
+    const accountB = { id: 'account-2', email: 'other@example.test', name: 'Other' };
+    const snapshotA = { topicMastery: { 'rule-5': 90 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const snapshotB = { topicMastery: { 'rule-5': 20 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const progress = new Map([
+      [account.id, { accountId: account.id, ...snapshotA, revision: 1, syncedAt: null }],
+      [accountB.id, { accountId: accountB.id, ...snapshotB, revision: 1, syncedAt: null }],
+    ]);
+    mocks.auth.authenticate
+      .mockResolvedValueOnce(account)
+      .mockResolvedValueOnce(accountB)
+      .mockResolvedValueOnce(accountB)
+      .mockRejectedValueOnce(new UnauthorizedError());
+    mocks.database.getProgress
+      .mockImplementationOnce(async (id: string) => progress.get(id))
+      .mockImplementationOnce(async (id: string) => progress.get(id));
+
+    expect(await invoke('getProgress', request({}, 'Bearer account-a'))).toMatchObject({ status: 200, jsonBody: { accountId: account.id, topicMastery: snapshotA.topicMastery } });
+    expect(await invoke('getProgress', request({}, 'Bearer account-b'))).toMatchObject({ status: 200, jsonBody: { accountId: accountB.id, topicMastery: snapshotB.topicMastery } });
+    expect(await invoke('syncProgress', request({ ...snapshotB, revision: 1, accountId: account.id }, 'Bearer account-b'))).toMatchObject({ status: 422 });
+    expect(await invoke('syncProgress', request({ ...snapshotA, revision: 1 }, 'Bearer expired'))).toMatchObject({ status: 401 });
+    expect(mocks.database.saveProgress).not.toHaveBeenCalled();
+    expect(progress.get(account.id)?.topicMastery).toEqual(snapshotA.topicMastery);
+  });
+
   it('returns Google configuration, challenge, and a verified session', async () => {
     mocks.auth.getGoogleClientId.mockReturnValue('client-id');
     mocks.auth.createGoogleChallenge.mockResolvedValue({ challengeId: 'challenge', nonce: 'nonce' });

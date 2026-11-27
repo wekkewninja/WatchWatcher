@@ -2,6 +2,8 @@
 
 Reviewed: 2026-11-23
 
+Follow-up review: 2026-11-27
+
 ## Scope and limits
 
 This is a source, configuration, dependency, and local-test review of the web app, Functions API, PostgreSQL access, IndexedDB progress storage, Google sign-in, Gemini evaluation, and GitHub Actions. No production environment is deployed or available for inspection. This review does not test production accounts, Azure ingress, DNS, production secrets, network policy, or Azure diagnostic retention, and is not a penetration test or a claim of zero vulnerabilities.
@@ -19,6 +21,7 @@ This is a source, configuration, dependency, and local-test review of the web ap
 
 | Finding | Severity | Evidence and disposition |
 | --- | --- | --- |
+| Delayed sign-in responses could replace a newer account or restore a session after logout; delayed startup restoration could overwrite newer UI state. | High | A shared-device user could see the wrong account's data when authentication attempts overlap. Fixed by invalidating superseded authentication responses and state updates. Client tests cover password, registration, Google sign-in, logout, and startup restoration races. |
 | Unexpected API errors could expose internal messages in Azure Production because redaction checked `NODE_ENV` while Functions uses `AZURE_FUNCTIONS_ENVIRONMENT`. | Medium | Fixed in this PR. Unknown environments default to redaction; tests cover Azure Production with `NODE_ENV=development` and Azure Development with `NODE_ENV=production`. |
 | Gemini API key was placed in the provider URL query string, where infrastructure may retain URLs in access logs. | Medium | Fixed in this PR. The key is now sent in `x-goog-api-key`; the service test asserts it is absent from the URL. |
 | API test tooling included Critical `vitest`/`tinypool` advisories. | Critical, development-only | Fixed in this PR by aligning API Vitest and coverage tooling to 5.1.1. The updated clean-install CI run is the final lockfile/runtime validation. |
@@ -40,6 +43,8 @@ This is a source, configuration, dependency, and local-test review of the web ap
 
 No Critical or High production-dependency advisory was found by the production audit. The remaining Moderate findings are development-only and are not represented as fixed.
 
+The follow-up issues #28, #29, and #30 are currently unassigned. A product/platform owner must accept and assign these risks before issue #6 can be closed; no individual owner or production mitigation has been confirmed. The deployment-dependent controls remain unverified under #13, and the Gemini privacy decision remains open under #10.
+
 ## Reproducible checks
 
 Run from the repository root:
@@ -52,3 +57,5 @@ npm audit
 ```
 
 The audit run for this review found zero production vulnerabilities. The full audit reported three Moderate development-tool findings after the Vitest upgrade; it reported no Critical or High findings. CI also runs the required coverage and icon gates.
+
+On 2026-11-27, `npm ci`, `npm run build`, `npm run test:coverage-gate`, `npm run test:coverage`, and `npm run test:icons` succeeded. `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities; `npm audit` reported three moderate development-only findings tracked by #30. The account-isolation handler tests use mocked authentication and storage; they do not replace a PostgreSQL-backed end-to-end test. Logout does not revoke a previously issued token, as tracked by #28.

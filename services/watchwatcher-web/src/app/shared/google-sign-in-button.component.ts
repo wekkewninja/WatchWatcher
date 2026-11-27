@@ -1,6 +1,7 @@
-import { AfterViewInit, Component, ElementRef, output, signal, viewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, inject, output, signal, viewChild } from '@angular/core';
 import { api } from '../../api';
 import type { GoogleAuthChallenge } from '../../api/types';
+import { AuthStateService } from '../core/auth-state.service';
 
 interface GoogleCredentialResponse {
   credential?: string;
@@ -54,6 +55,8 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
   readonly signedIn = output<GoogleCredentialEvent>();
   readonly loading = signal(true);
   readonly error = signal('');
+  private readonly auth = inject(AuthStateService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly buttonHost = viewChild.required<ElementRef<HTMLElement>>('buttonHost');
   private challenge: GoogleAuthChallenge | null = null;
 
@@ -62,6 +65,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
   refresh(): void { void this.prepareButton(); }
 
   private async prepareButton(): Promise<void> {
+    const generation = this.auth.accountGeneration;
     this.loading.set(true);
     this.error.set('');
     try {
@@ -76,6 +80,12 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
         nonce: challenge.nonce,
         auto_select: false,
         callback: (response) => {
+          if (this.destroyRef.destroyed) return;
+          if (generation !== this.auth.accountGeneration) {
+            this.challenge = null;
+            this.error.set('Account changed. Retry Google sign-in.');
+            return;
+          }
           const currentChallenge = this.challenge;
           this.challenge = null;
           if (!response.credential || !currentChallenge) {
