@@ -24,6 +24,7 @@ describe('App', () => {
 
   afterEach(() => {
     localStorage.removeItem('app-theme');
+    localStorage.removeItem('app-locale');
     if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia);
     else Reflect.deleteProperty(window, 'matchMedia');
     vi.restoreAllMocks();
@@ -41,6 +42,31 @@ describe('App', () => {
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand-lockup')?.textContent).toContain('WatchWatcher');
+  });
+
+  it('renders the English navigation catalog by default', () => {
+    const fixture = TestBed.createComponent(App);
+    TestBed.inject(AuthStateService).user.set({ id: 'navigation-user', name: 'Sailor', email: 'sailor@example.test' });
+    fixture.detectChanges();
+    const navigation = (fixture.nativeElement as HTMLElement).querySelector('nav[aria-label="Main navigation"]');
+
+    expect(navigation?.textContent).toContain('Study Desk');
+    expect(navigation?.textContent).toContain('Examiner Workspace');
+    expect(navigation?.textContent).toContain('COLREGs Reference');
+    expect(navigation?.textContent).toContain('Offline ready');
+  });
+
+  it('shows the current English locale in a keyboard-accessible selector and persists selection', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const selector = (fixture.nativeElement as HTMLElement).querySelector('select[aria-label="Language"]') as HTMLSelectElement;
+
+    expect(selector).not.toBeNull();
+    expect(selector.options).toHaveLength(1);
+    expect(selector.options[0].textContent).toContain('🇬🇧 EN / English');
+    selector.value = 'en';
+    selector.dispatchEvent(new Event('change'));
+    expect(localStorage.getItem('app-locale')).toBe('en');
   });
 
   it('opens account settings from the profile name and avatar', async () => {

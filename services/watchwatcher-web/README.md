@@ -1,5 +1,9 @@
 # WatchwatcherWeb
 
+## Interface locale
+
+Application-owned interface copy is stored in the namespaced English catalog in `src/app/core/locale.service.ts` and rendered with the `t` pipe or `LocaleService.translate`. Missing keys and interpolation values throw rather than rendering blank text. The English locale (`en`) is the default and is persisted under `app-locale`; the toolbar selector currently offers English only. Add future interface translations as catalogs without moving authored COLREGs wording, reference entries, syllabus/course material, or question banks out of their existing content bundles.
+
 ## Account deletion
 
 Account settings offers online deletion after explicit confirmation and fresh password or Google authentication. Account data is retained until deletion. A confirmed deletion signs out the deleted account, rejects later sessions for that account, and removes its local progress; if local storage is unavailable, the app reports the failure and retries pending cleanup on startup or by request. A persistent per-account tombstone prevents stale local writes from recreating deleted progress. IndexedDB version 3 fences older version-2 clients after cleanup; an older open tab can block the upgrade, leaving cleanup pending until it closes and cleanup is retried. Other accounts and guest progress are unaffected. Offline devices cannot be remotely erased; clear their local data separately. Durable retry requires browser local storage or a successfully committed IndexedDB tombstone.

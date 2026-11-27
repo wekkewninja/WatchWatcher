@@ -4,9 +4,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { AuthStateService } from './core/auth-state.service';
+import { LocaleService, TranslationPipe } from './core/locale.service';
 
 @Component({
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, MatButtonModule, MatIconModule, MatToolbarModule],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, MatButtonModule, MatIconModule, MatToolbarModule, TranslationPipe],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -18,7 +19,7 @@ export class App {
   readonly cleanupBusy = signal<string | null>(null);
   private activeViewOwner: string | null = null;
 
-  constructor(readonly auth: AuthStateService, private readonly router: Router) {
+  constructor(readonly auth: AuthStateService, readonly locales: LocaleService, private readonly router: Router) {
     const invalidated = (event: Event) => {
       if (this.activeViewOwner && this.activeViewOwner === (event as CustomEvent<string>).detail) {
         this.auth.accountViewInvalidated.set(true);
@@ -48,6 +49,10 @@ export class App {
   toggleTheme(): void {
     localStorage.setItem('app-theme', this.darkMode() ? 'light' : 'dark');
     this.applyTheme(!this.darkMode());
+  }
+
+  setLocaleFromEvent(event: Event): void {
+    this.locales.setLocale((event.target as HTMLSelectElement).value);
   }
 
   async signOut(): Promise<void> {

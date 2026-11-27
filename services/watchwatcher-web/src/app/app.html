@@ -1,77 +1,78 @@
 <header class="topbar">
   <mat-toolbar class="brand-toolbar">
-    <a class="brand-lockup" routerLink="/" aria-label="WatchWatcher study desk"><span class="brand-mark"><mat-icon>sailing</mat-icon></span><span>WatchWatcher<small>RYA / ASA Yachtmaster</small></span></a>
+    <a class="brand-lockup" routerLink="/" [attr.aria-label]="'app.brand.label' | t"><span class="brand-mark"><mat-icon>sailing</mat-icon></span><span>WatchWatcher<small>{{ 'app.brand.subtitle' | t }}</small></span></a>
     <span class="toolbar-spacer"></span>
+    <label class="locale-selector"><span class="visually-hidden">{{ 'app.locale.label' | t }}</span><select [value]="locales.locale()" [attr.aria-label]="'app.locale.label' | t" (change)="setLocaleFromEvent($event)"><option value="en">{{ 'app.locale.english' | t }}</option></select></label>
     @if (auth.user(); as user) {
-      <a class="user-name" routerLink="/account" [attr.aria-label]="'Account settings for ' + user.name" title="Account settings"><span class="user-avatar">{{ user.name.slice(0, 1) }}</span>{{ user.name }}</a>
-      <button mat-icon-button (click)="toggleTheme()" [attr.aria-label]="darkMode() ? 'Use light theme' : 'Use dark theme'" [title]="darkMode() ? 'Use light theme' : 'Use dark theme'"><mat-icon>{{ darkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon></button>
-      <button mat-icon-button (click)="signOut()" aria-label="Sign out" title="Sign out"><mat-icon>logout</mat-icon></button>
+      <a class="user-name" routerLink="/account" [attr.aria-label]="'app.toolbar.accountSettings' | t: { name: user.name }" [title]="'app.toolbar.accountSettingsTitle' | t"><span class="user-avatar">{{ user.name.slice(0, 1) }}</span>{{ user.name }}</a>
+      <button mat-icon-button (click)="toggleTheme()" [attr.aria-label]="(darkMode() ? 'app.toolbar.theme.light' : 'app.toolbar.theme.dark') | t" [title]="(darkMode() ? 'app.toolbar.theme.light' : 'app.toolbar.theme.dark') | t"><mat-icon>{{ darkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon></button>
+      <button mat-icon-button (click)="signOut()" [attr.aria-label]="'app.toolbar.signOut' | t" [title]="'app.toolbar.signOut' | t"><mat-icon>logout</mat-icon></button>
     } @else {
-      <a mat-stroked-button routerLink="/login"><mat-icon>login</mat-icon> Sign in</a>
+      <a mat-stroked-button routerLink="/login"><mat-icon>login</mat-icon> {{ 'app.toolbar.signIn' | t }}</a>
     }
   </mat-toolbar>
   @if (auth.user()) {
-    <nav class="primary-nav" aria-label="Main navigation">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"><mat-icon>home</mat-icon>Study Desk</a>
-      <a routerLink="/examiner" routerLinkActive="active"><mat-icon>radar</mat-icon>Examiner Workspace</a>
-      <a routerLink="/exam" routerLinkActive="active"><mat-icon>quiz</mat-icon>Exam</a>
-      <a routerLink="/syllabus" routerLinkActive="active"><mat-icon>grid_view</mat-icon>Syllabus Map</a>
-      <a routerLink="/colregs" routerLinkActive="active"><mat-icon>search</mat-icon>COLREGs Reference</a>
-      <span class="nav-end"><mat-icon>offline_bolt</mat-icon> Offline ready</span>
+    <nav class="primary-nav" [attr.aria-label]="'app.navigation.label' | t">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"><mat-icon>home</mat-icon>{{ 'app.navigation.studyDesk' | t }}</a>
+      <a routerLink="/examiner" routerLinkActive="active"><mat-icon>radar</mat-icon>{{ 'app.navigation.examiner' | t }}</a>
+      <a routerLink="/exam" routerLinkActive="active"><mat-icon>quiz</mat-icon>{{ 'app.navigation.exam' | t }}</a>
+      <a routerLink="/syllabus" routerLinkActive="active"><mat-icon>grid_view</mat-icon>{{ 'app.navigation.syllabus' | t }}</a>
+      <a routerLink="/colregs" routerLinkActive="active"><mat-icon>search</mat-icon>{{ 'app.navigation.colregs' | t }}</a>
+      <span class="nav-end"><mat-icon>offline_bolt</mat-icon> {{ 'app.navigation.offlineReady' | t }}</span>
     </nav>
   }
 </header>
 @if (auth.cloudAuth() === 'local') {
   <div role="alert" style="padding: 12px 20px;">
-    Cloud session expired or unavailable. Progress remains on this device for {{ auth.user()?.name }}.
-    <a mat-button routerLink="/login">Sign in to sync</a>
+    {{ 'app.notice.cloudSession' | t: { name: auth.user()?.name ?? '' } }}
+    <a mat-button routerLink="/login">{{ 'app.notice.syncLink' | t }}</a>
   </div>
 }
 @if (auth.logoutWarning()) {
   <div role="alert" style="padding: 12px 20px;">
-    A previous session was cleared from this device, but server sign-out could not be confirmed. It may remain usable for up to 20 minutes after the failed sign-out.
-    @if (auth.logoutWarningStorageUnavailable()) { Browser storage is unavailable; this warning may not survive a reload. }
+    {{ 'app.notice.logoutWarning' | t }}
+    @if (auth.logoutWarningStorageUnavailable()) { {{ 'app.notice.logoutStorageUnavailable' | t }} }
   </div>
 }
 @if (auth.deletionNoticeUnavailable()) {
-  <div role="alert" style="padding: 12px 20px;">Browser storage is unavailable. Deletion notices and local cleanup status cannot be checked; enable storage and reload.</div>
+  <div role="alert" style="padding: 12px 20px;">{{ 'app.notice.deletionStorageUnavailable' | t }}</div>
 }
 @for (ownerId of auth.deletionVerificationUnavailable(); track ownerId) {
-  <div role="alert" style="padding: 12px 20px;">Deletion was confirmed for account {{ ownerId }}, but this browser could not persist that verification or erase its local data. The unresolved notice is retained where possible; enable storage and retry before closing this tab.</div>
+  <div role="alert" style="padding: 12px 20px;">{{ 'app.notice.deletionVerificationUnavailable' | t: { accountId: ownerId } }}</div>
 }
 @for (ownerId of auth.unresolvedDeletions(); track ownerId) {
   <div role="alert" style="padding: 12px 20px;">
-    The deletion outcome for account {{ ownerId }} is unconfirmed. Server data could still exist. Other devices must be handled separately; offline devices cannot be erased remotely.
+    {{ 'app.notice.deletionOutcome' | t: { accountId: ownerId } }}
     @if (auth.deletionRetryOwner() === ownerId) {
-      <button mat-button type="button" (click)="auth.confirmUnresolvedDeletion(ownerId)">Check deletion receipt</button>
-      This check is available briefly in this tab only and is lost on reload or sign-out.
+      <button mat-button type="button" (click)="auth.confirmUnresolvedDeletion(ownerId)">{{ 'app.notice.checkDeletionReceipt' | t }}</button>
+      {{ 'app.notice.receiptBrieflyAvailable' | t }}
       @if (auth.deletionRetryError(); as error) { <p role="alert">{{ error }}</p> }
     } @else {
-      Receipt confirmation is unavailable after reload, expiry, or sign-out.
+      {{ 'app.notice.receiptUnavailable' | t }}
     }
     @if (auth.localCleanupStates()[ownerId] === 'done') {
-      This account's progress was erased from this browser profile. If the account still exists, sign in using a separate browser profile to recover access or retry deletion; server data may return and an outstanding deletion could still complete.
+      {{ 'app.notice.localDataErased' | t }}
     } @else if (auth.localCleanupStates()[ownerId] === 'pending') {
-      Local cleanup is not confirmed complete. Close other WatchWatcher tabs and retry.
+      {{ 'app.notice.localCleanupPending' | t }}
     } @else {
-      Local data has been kept.
+      {{ 'app.notice.localDataKept' | t }}
     }
     @if (auth.user()?.id === ownerId && !auth.localCleanupStates()[ownerId]) {
-      <a mat-button routerLink="/account">Retry account deletion</a>
+      <a mat-button routerLink="/account">{{ 'app.notice.retryAccountDeletion' | t }}</a>
     } @else if (!auth.localCleanupStates()[ownerId]) {
-      Sign in to that account to retry. Without its valid session, the outcome cannot be confirmed here.
+      {{ 'app.notice.signInToRetry' | t }}
     }
     @if (auth.localCleanupStates()[ownerId] !== 'done') {
       @if (cleanupConfirmation() === ownerId) {
         <fieldset>
-          <legend>Erase local progress for account {{ ownerId }}?</legend>
-          <p>This does not delete server data or data on other devices. This browser profile will block sign-in to this account.</p>
-          <label><input type="checkbox" [checked]="cleanupConfirmed()" (change)="cleanupConfirmed.set($any($event.target).checked)"> I understand and want to erase this account's local progress.</label>
-          <button mat-button type="button" [disabled]="!cleanupConfirmed() || !!cleanupBusy()" (click)="eraseLocalData(ownerId)">Confirm local erase</button>
-          <button mat-button type="button" [disabled]="!!cleanupBusy()" (click)="cleanupConfirmation.set(null)">Cancel</button>
+          <legend>{{ 'app.notice.confirmLocalErasePrompt' | t: { accountId: ownerId } }}</legend>
+          <p>{{ 'app.notice.localEraseDisclaimer' | t }}</p>
+          <label><input type="checkbox" [checked]="cleanupConfirmed()" (change)="cleanupConfirmed.set($any($event.target).checked)"> {{ 'app.notice.localEraseCheckbox' | t }}</label>
+          <button mat-button type="button" [disabled]="!cleanupConfirmed() || !!cleanupBusy()" (click)="eraseLocalData(ownerId)">{{ 'app.notice.confirmLocalErase' | t }}</button>
+          <button mat-button type="button" [disabled]="!!cleanupBusy()" (click)="cleanupConfirmation.set(null)">{{ 'app.notice.cancel' | t }}</button>
         </fieldset>
       } @else {
-        <button mat-button type="button" [disabled]="!!cleanupBusy()" (click)="confirmCleanup(ownerId)">{{ auth.localCleanupStates()[ownerId] === 'pending' ? 'Retry local erase' : 'Erase local data' }}</button>
+        <button mat-button type="button" [disabled]="!!cleanupBusy()" (click)="confirmCleanup(ownerId)">{{ (auth.localCleanupStates()[ownerId] === 'pending' ? 'app.notice.retryLocalErase' : 'app.notice.eraseLocalData') | t }}</button>
       }
     }
     @if (auth.localCleanupErrors()[ownerId]; as error) { <p role="alert">{{ error }}</p> }
@@ -79,8 +80,8 @@
 }
 @if (auth.cleanupPending()) {
   <div role="alert" style="padding: 12px 20px;">
-    Account deleted, but local cleanup or its completion could not be verified. Close other WatchWatcher tabs and retry if this message remains.
-    <button mat-button type="button" (click)="auth.retryLocalCleanup()">Retry local deletion</button>
+    {{ 'app.notice.cleanupPending' | t }}
+    <button mat-button type="button" (click)="auth.retryLocalCleanup()">{{ 'app.notice.retryLocalDeletion' | t }}</button>
   </div>
 }
 @if (!auth.accountViewInvalidated()) { <router-outlet (activate)="captureViewOwner()" /> }

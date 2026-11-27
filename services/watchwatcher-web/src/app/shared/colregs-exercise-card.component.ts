@@ -4,18 +4,19 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import type { ColregsRule, ProgressSnapshot } from '../domain-types';
 import { StudentMemoryService, summarizeRuleExercise, type RuleExerciseSummary } from '../core/student-memory.service';
+import { LocaleService, TranslationPipe } from '../core/locale.service';
 
 @Component({
   selector: 'ww-colregs-exercise-card',
   standalone: true,
-  imports: [MatButtonModule, MatCardModule, MatIconModule],
+  imports: [MatButtonModule, MatCardModule, MatIconModule, TranslationPipe],
   template: `
     <mat-card class="rule-detail-card rule-practice-card">
-      <mat-card-header><mat-icon mat-card-avatar>quiz</mat-icon><mat-card-title>Practice scenario</mat-card-title><mat-card-subtitle>Choose the safest answer</mat-card-subtitle></mat-card-header>
+      <mat-card-header><mat-icon mat-card-avatar>quiz</mat-icon><mat-card-title>{{ 'exercise.practiceScenario' | t }}</mat-card-title><mat-card-subtitle>{{ 'exercise.chooseSafest' | t }}</mat-card-subtitle></mat-card-header>
       <mat-card-content>
         <p class="exercise-prompt">{{ rule().exercise.prompt }}</p>
         <fieldset class="exercise-options">
-          <legend>Answer choices</legend>
+          <legend>{{ 'exercise.answerChoices' | t }}</legend>
           @for (option of rule().exercise.options; track option.id) {
             <label [class.selected]="selectedOption() === option.id">
               <input type="radio" [name]="'exercise-' + rule().id" [value]="option.id" [checked]="selectedOption() === option.id" (change)="selectOption(option.id)">
@@ -24,16 +25,16 @@ import { StudentMemoryService, summarizeRuleExercise, type RuleExerciseSummary }
           }
         </fieldset>
         <button mat-flat-button type="button" [disabled]="!selectedOption() || saving()" (click)="checkAnswer()">
-          <mat-icon>{{ saving() ? 'hourglass_top' : 'task_alt' }}</mat-icon>{{ saving() ? 'Saving' : 'Check answer' }}
+          <mat-icon>{{ saving() ? 'hourglass_top' : 'task_alt' }}</mat-icon>{{ (saving() ? 'exercise.saving' : 'exercise.checkAnswer') | t }}
         </button>
-        @if (summary().attempts) { <p class="exercise-history">{{ summary().attempts }} recorded attempts · {{ summary().mastery }}% accuracy{{ summary().completed ? ' · Completed' : ' · In progress' }}</p> }
+        @if (summary().attempts) { <p class="exercise-history">{{ (summary().completed ? 'exercise.historyCompleted' : 'exercise.historyInProgress') | t: { count: summary().attempts, mastery: summary().mastery } }}</p> }
         @if (exerciseChecked()) {
           <div class="exercise-feedback" [class.correct]="selectedOption() === rule().exercise.answer" role="status">
-            <strong>{{ selectedOption() === rule().exercise.answer ? 'Correct' : 'Review this one' }}</strong>
+            <strong>{{ (selectedOption() === rule().exercise.answer ? 'exercise.correct' : 'exercise.reviewThisOne') | t }}</strong>
             <p>{{ rule().exercise.explanation }}</p>
             @if (selectedOption() !== rule().exercise.answer) {
-              <p><strong>Correct answer:</strong> {{ correctAnswer() }}</p>
-              <p><strong>Review:</strong> {{ rule().exercise.remediation }}</p>
+              <p><strong>{{ 'exercise.correctAnswer' | t }}</strong> {{ correctAnswer() }}</p>
+              <p><strong>{{ 'exercise.review' | t }}</strong> {{ rule().exercise.remediation }}</p>
             }
           </div>
         }
@@ -51,7 +52,7 @@ export class ColregsExerciseCardComponent implements OnChanges {
   readonly error = signal('');
   readonly summary = signal<RuleExerciseSummary>({ attempts: 0, correctAttempts: 0, completed: false, mastery: 0, lastAttemptAt: null });
 
-  constructor(private readonly memory: StudentMemoryService) {}
+  constructor(private readonly memory: StudentMemoryService, private readonly locales: LocaleService = new LocaleService()) {}
 
   ngOnChanges(): void {
     this.selectedOption.set(null);
@@ -81,7 +82,7 @@ export class ColregsExerciseCardComponent implements OnChanges {
       this.summary.set(summarizeRuleExercise(rule.id, progress));
       this.progressChanged.emit(progress);
     } catch (error) {
-      this.error.set(error instanceof Error ? `Answer checked, but progress could not be saved: ${error.message}` : 'Answer checked, but progress could not be saved.');
+      this.error.set(error instanceof Error ? this.locales.translate('exercise.saveFailed', { message: error.message }) : this.locales.translate('exercise.saveFailedGeneric'));
     } finally {
       this.exerciseChecked.set(true);
       this.saving.set(false);

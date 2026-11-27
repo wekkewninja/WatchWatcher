@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import type { ProgressSnapshot } from '../domain-types';
+import { LocaleService } from './locale.service';
 
 const databaseName = 'watchwatcher-local';
 const storeName = 'progress';
@@ -18,6 +19,8 @@ export function localCleanupKey(ownerId: string): string {
 
 @Injectable({ providedIn: 'root' })
 export class StorageRepository {
+  constructor(private readonly locales: LocaleService = new LocaleService()) {}
+
   async loadProgress(ownerId: string): Promise<ProgressSnapshot | null> {
     const db = await this.openDatabase();
     return new Promise((resolve, reject) => {
@@ -51,7 +54,7 @@ export class StorageRepository {
       const tombstone = store.get(this.tombstoneKey(ownerId));
       tombstone.onsuccess = () => {
         try {
-          if (tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId)) || localStorage.getItem(localCleanupKey(ownerId))) throw new Error('Progress for this deleted account cannot be saved.');
+          if (tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId)) || localStorage.getItem(localCleanupKey(ownerId))) throw new Error(this.locales.translate('storage.progressDeleted'));
           const request = store.get(key);
           request.onsuccess = () => {
             try {
@@ -74,15 +77,15 @@ export class StorageRepository {
       transaction.oncomplete = () => {
         db.close();
         if (updated) resolve(updated);
-        else reject(new Error('Progress update completed without a snapshot.'));
+        else reject(new Error(this.locales.translate('storage.updateNoSnapshot')));
       };
       transaction.onerror = () => { db.close(); reject(updateError ?? transaction.error); };
-      transaction.onabort = () => { db.close(); reject(updateError ?? transaction.error ?? new Error('Progress update was aborted.')); };
+      transaction.onabort = () => { db.close(); reject(updateError ?? transaction.error ?? new Error(this.locales.translate('storage.updateAborted'))); };
     });
   }
 
   async deleteAccountProgress(ownerId: string, localOnly = false): Promise<void> {
-    if (!ownerId || ownerId === guestKey) throw new Error('An account owner is required.');
+    if (!ownerId || ownerId === guestKey) throw new Error(this.locales.translate('storage.ownerRequired'));
     const db = await this.openDatabase();
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readwrite');
@@ -93,7 +96,7 @@ export class StorageRepository {
       };
       store.delete(this.progressKey(ownerId));
       transaction.oncomplete = () => { db.close(); resolve(); };
-      transaction.onabort = () => { db.close(); reject(transaction.error ?? new Error('Local deletion failed.')); };
+      transaction.onabort = () => { db.close(); reject(transaction.error ?? new Error(this.locales.translate('storage.localDeletionFailed'))); };
     });
   }
 
@@ -103,7 +106,7 @@ export class StorageRepository {
       const transaction = db.transaction(storeName, 'readonly');
       const request = transaction.objectStore(storeName).get(this.tombstoneKey(ownerId));
       transaction.oncomplete = () => { db.close(); resolve(Boolean(request.result)); };
-      transaction.onabort = () => { db.close(); reject(transaction.error ?? new Error('Local deletion status is unavailable.')); };
+      transaction.onabort = () => { db.close(); reject(transaction.error ?? new Error(this.locales.translate('storage.deletionStatusUnavailable'))); };
     });
   }
 
@@ -112,7 +115,7 @@ export class StorageRepository {
   }
 
   private progressKey(ownerId: string): string {
-    if (!ownerId) throw new Error('A progress owner is required.');
+    if (!ownerId) throw new Error(this.locales.translate('storage.progressOwnerRequired'));
     return ownerId === guestKey ? guestKey : `user:${ownerId}`;
   }
 
@@ -138,7 +141,7 @@ export class StorageRepository {
       let blocked = false;
       request.onsuccess = () => { if (blocked) request.result.close(); else resolve(request.result); };
       request.onerror = () => reject(request.error);
-      request.onblocked = () => { blocked = true; reject(new Error('Local storage is blocked by another open tab.')); };
+      request.onblocked = () => { blocked = true; reject(new Error(this.locales.translate('storage.blockedByTab'))); };
     });
   }
 }

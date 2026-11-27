@@ -4,6 +4,7 @@ import { canConfirmDeletion, confirmDeletionReceipt, getAuthenticatedAccountId, 
 import type { AccountReauthentication, GoogleSignInInput, GoogleSignInResult } from '../../api/types';
 import type { Learner } from '../domain-types';
 import { deletionMarkerKey, localCleanupKey, StorageRepository } from './storage-repository.service';
+import { LocaleService } from './locale.service';
 
 const deletionIntentPrefix = 'watchwatcher-deletion-intent:';
 const localIdentityKey = 'watchwatcher-local-identity';
@@ -35,7 +36,7 @@ export class AuthStateService {
 
   get accountGeneration(): number { return this.generation; }
 
-  constructor() {
+  constructor(private readonly locales: LocaleService = new LocaleService()) {
     window.addEventListener('watchwatcher-deletion-retry-changed', () => {
       const owner = this.unresolvedDeletions().find((accountId) => canConfirmDeletion(accountId));
       this.deletionRetryOwner.set(owner ?? null);
@@ -86,14 +87,14 @@ export class AuthStateService {
   }
 
   async deleteAccount(accountId: string, generation: number, reauthentication: AccountReauthentication): Promise<boolean> {
-    if (generation !== this.generation || this.user()?.id !== accountId) throw new Error('Account changed. Review the account before deleting.');
-    if (this.cloudAuth() === 'local') throw new Error('Sign in again before deleting this account.');
+    if (generation !== this.generation || this.user()?.id !== accountId) throw new Error(this.locales.translate('auth.state.accountChanged'));
+    if (this.cloudAuth() === 'local') throw new Error(this.locales.translate('auth.state.signInAgainToDelete'));
     const account = this.user();
     const intentKey = `${deletionIntentPrefix}${accountId}:${crypto.randomUUID()}`;
     try {
       localStorage.setItem(intentKey, 'pending');
     }
-    catch { throw new Error('Deletion cannot start because this device cannot save a recovery notice.'); }
+    catch { throw new Error(this.locales.translate('auth.state.cannotSaveDeletionNotice')); }
     this.updateUnresolvedDeletions();
     try {
       await api.deleteAccount(accountId, reauthentication);
@@ -118,7 +119,7 @@ export class AuthStateService {
       await confirmDeletionReceipt(accountId);
       this.finishConfirmedDeletion(accountId, this.generation);
     } catch (error) {
-      this.deletionRetryError.set(error instanceof Error ? error.message : 'Deletion could not be confirmed. Server data may still exist.');
+      this.deletionRetryError.set(error instanceof Error ? error.message : this.locales.translate('auth.state.deletionUnconfirmed'));
     }
   }
 
@@ -162,7 +163,7 @@ export class AuthStateService {
     this.localCleanupErrors.update((errors) => ({ ...errors, [accountId]: '' }));
     try {
       this.updateUnresolvedDeletions();
-      if (!accountId || accountId === 'guest' || !this.unresolvedDeletions().includes(accountId)) throw new Error('No unresolved deletion for this account.');
+      if (!accountId || accountId === 'guest' || !this.unresolvedDeletions().includes(accountId)) throw new Error(this.locales.translate('auth.state.noUnresolvedDeletion'));
       if (localStorage.getItem(localCleanupKey(accountId)) === 'done') return;
       localStorage.setItem(localCleanupKey(accountId), 'pending');
       this.updateUnresolvedDeletions();
@@ -171,7 +172,7 @@ export class AuthStateService {
       localStorage.setItem(localCleanupKey(accountId), 'done');
       this.updateUnresolvedDeletions();
     } catch {
-      this.localCleanupErrors.update((errors) => ({ ...errors, [accountId]: 'Local cleanup could not be completed. Close other WatchWatcher tabs, check browser storage, and retry. Server deletion remains unconfirmed.' }));
+      this.localCleanupErrors.update((errors) => ({ ...errors, [accountId]: this.locales.translate('auth.state.localCleanupFailed') }));
     } finally {
       this.localCleanupRunning.delete(accountId);
     }
@@ -261,8 +262,8 @@ export class AuthStateService {
   async login(email: string, password: string): Promise<void> {
     const generation = ++this.generation;
     const user = await api.login({ email, password });
-    if (generation !== this.generation) throw new Error('Sign-in was superseded by another account change.');
-    if (this.isDeleted(user.id)) throw new Error('This account has been deleted.');
+    if (generation !== this.generation) throw new Error(this.locales.translate('auth.state.signInSuperseded'));
+    if (this.isDeleted(user.id)) throw new Error(this.locales.translate('auth.state.accountDeleted'));
     sessionStorage.removeItem('watchwatcher-signed-out');
     this.setAuthenticatedUser(user);
   }
@@ -270,8 +271,8 @@ export class AuthStateService {
   async createAccount(name: string, email: string, password: string): Promise<void> {
     const generation = ++this.generation;
     const user = await api.createAccount({ name, email, password });
-    if (generation !== this.generation) throw new Error('Sign-in was superseded by another account change.');
-    if (this.isDeleted(user.id)) throw new Error('This account has been deleted.');
+    if (generation !== this.generation) throw new Error(this.locales.translate('auth.state.signInSuperseded'));
+    if (this.isDeleted(user.id)) throw new Error(this.locales.translate('auth.state.accountDeleted'));
     sessionStorage.removeItem('watchwatcher-signed-out');
     this.setAuthenticatedUser(user);
   }
@@ -279,9 +280,9 @@ export class AuthStateService {
   async loginWithGoogle(input: GoogleSignInInput): Promise<GoogleSignInResult> {
     const generation = ++this.generation;
     const result = await api.googleSignIn(input);
-    if (generation !== this.generation) throw new Error('Sign-in was superseded by another account change.');
+    if (generation !== this.generation) throw new Error(this.locales.translate('auth.state.signInSuperseded'));
     if (result.kind === 'authenticated') {
-      if (this.isDeleted(result.user.id)) throw new Error('This account has been deleted.');
+      if (this.isDeleted(result.user.id)) throw new Error(this.locales.translate('auth.state.accountDeleted'));
       sessionStorage.removeItem('watchwatcher-signed-out');
       this.setAuthenticatedUser(result.user);
     }
