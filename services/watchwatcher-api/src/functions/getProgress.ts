@@ -3,7 +3,7 @@ import type { ProgressSnapshot } from '../../../shared/types/entities';
 import { getServices } from '../services/registry';
 import { bearerHeader, runHttp } from './httpUtils';
 
-const emptyProgress: ProgressSnapshot = { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+const emptyProgress: ProgressSnapshot = { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
 
 app.http('getProgress', {
   methods: ['GET'],

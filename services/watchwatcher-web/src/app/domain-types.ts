@@ -3,12 +3,20 @@ import type {
   EvaluationResult as SharedEvaluationResult,
   ProgressSnapshot as SharedProgressSnapshot,
   RuleExerciseAttempt as SharedRuleExerciseAttempt,
+  AssessmentPriority as SharedAssessmentPriority,
+  ExamQuestionResult as SharedExamQuestionResult,
+  ExamSession as SharedExamSession,
+  ObjectivePracticeAttempt as SharedObjectivePracticeAttempt,
   PublicAccount,
 } from '@watchwatcher/shared/types';
 
 export type Learner = PublicAccount;
 export type ProgressSnapshot = SharedProgressSnapshot;
 export type RuleExerciseAttempt = SharedRuleExerciseAttempt;
+export type AssessmentPriority = SharedAssessmentPriority;
+export type ExamQuestionResult = SharedExamQuestionResult;
+export type ExamSession = SharedExamSession;
+export type ObjectivePracticeAttempt = SharedObjectivePracticeAttempt;
 export type EvaluationRequest = SharedEvaluationRequest;
 export type EvaluationResult = SharedEvaluationResult & { passed: boolean };
 

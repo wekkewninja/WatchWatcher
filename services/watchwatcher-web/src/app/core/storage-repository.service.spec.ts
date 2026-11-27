@@ -23,8 +23,12 @@ describe('StorageRepository', () => {
       weakSpotLog: [{ topicId: 'rule-19', tag: 'late-action', timestamp: '2026-11-18T09:30:00.000Z' }],
       drillQueue: ['colregs_rule_19'],
       ruleExerciseAttempts: [],
+      objectivePracticeAttempts: [],
+      examSessions: [],
+      deletedExamSessionIds: [],
+      examHistoryDeletedAt: null,
     };
-    const secondAccount = { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const secondAccount = { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
 
     await repository.saveProgress('account-a', firstAccount);
     await repository.saveProgress('account-b', secondAccount);
@@ -36,7 +40,7 @@ describe('StorageRepository', () => {
 
   it('tombstones deleted owners and rejects stale writes without affecting other owners', async () => {
     const repository = new StorageRepository();
-    const snapshot = { topicMastery: { topic: 50 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const snapshot = { topicMastery: { topic: 50 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
     await repository.saveProgress('account-a', snapshot);
     await repository.saveProgress('account-b', snapshot);
     await repository.saveProgress('guest', snapshot);
@@ -213,7 +217,7 @@ describe('StorageRepository', () => {
     });
 
     const repository = new StorageRepository();
-    await expect(repository.loadProgress('guest')).resolves.toEqual({ ...legacy, ruleExerciseAttempts: [] });
+    await expect(repository.loadProgress('guest')).resolves.toEqual({ ...legacy, ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null });
     await expect(repository.loadProgress('account-a')).resolves.toBeNull();
   });
 
@@ -233,6 +237,6 @@ describe('StorageRepository', () => {
       };
       request.onerror = () => reject(request.error);
     });
-    await expect(new StorageRepository().loadProgress('guest')).resolves.toEqual(guest);
+    await expect(new StorageRepository().loadProgress('guest')).resolves.toEqual({ ...guest, objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null });
   });
 });

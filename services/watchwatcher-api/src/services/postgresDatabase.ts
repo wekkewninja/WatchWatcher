@@ -214,10 +214,14 @@ export class PostgresDatabaseService implements IDatabaseService {
       weak_spot_log: ProgressSnapshot['weakSpotLog'];
       drill_queue: ProgressSnapshot['drillQueue'];
       rule_exercise_attempts: ProgressSnapshot['ruleExerciseAttempts'];
+      objective_practice_attempts: NonNullable<ProgressSnapshot['objectivePracticeAttempts']>;
+      exam_sessions: NonNullable<ProgressSnapshot['examSessions']>;
+      deleted_exam_session_ids: NonNullable<ProgressSnapshot['deletedExamSessionIds']>;
+      exam_history_deleted_at: Date | null;
       revision: number;
       synced_at: Date;
     }>(
-      'SELECT topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, revision, synced_at FROM progress_snapshots WHERE account_id = $1',
+      'SELECT topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, objective_practice_attempts, exam_sessions, deleted_exam_session_ids, exam_history_deleted_at, revision, synced_at FROM progress_snapshots WHERE account_id = $1',
       [accountId],
     );
     const row = result.rows[0];
@@ -228,6 +232,10 @@ export class PostgresDatabaseService implements IDatabaseService {
       weakSpotLog: row.weak_spot_log,
       drillQueue: row.drill_queue,
       ruleExerciseAttempts: row.rule_exercise_attempts,
+      objectivePracticeAttempts: row.objective_practice_attempts,
+      examSessions: row.exam_sessions,
+      deletedExamSessionIds: row.deleted_exam_session_ids,
+      examHistoryDeletedAt: row.exam_history_deleted_at?.toISOString() ?? null,
       revision: row.revision,
       syncedAt: row.synced_at.toISOString(),
     };
@@ -236,13 +244,14 @@ export class PostgresDatabaseService implements IDatabaseService {
   async saveProgress(accountId: string, snapshot: ProgressSnapshot, expectedRevision: number): Promise<{ syncedAt: string; revision: number }> {
     const result = await this.getPool().query<{ revision: number; synced_at: Date }>(
       expectedRevision === 0
-        ? `INSERT INTO progress_snapshots (account_id, topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, revision, synced_at)
-           SELECT $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, 1, NOW() WHERE $6 = 0
+            ? `INSERT INTO progress_snapshots (account_id, topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, objective_practice_attempts, exam_sessions, deleted_exam_session_ids, exam_history_deleted_at, revision, synced_at)
+              SELECT $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::timestamptz, 1, NOW() WHERE $10 = 0
            ON CONFLICT (account_id) DO NOTHING RETURNING revision, synced_at`
         : `UPDATE progress_snapshots SET topic_mastery = $2::jsonb, weak_spot_log = $3::jsonb,
-           drill_queue = $4::jsonb, rule_exercise_attempts = $5::jsonb, revision = revision + 1, synced_at = NOW()
-           WHERE account_id = $1 AND revision = $6 RETURNING revision, synced_at`,
-      [accountId, JSON.stringify(snapshot.topicMastery), JSON.stringify(snapshot.weakSpotLog), JSON.stringify(snapshot.drillQueue), JSON.stringify(snapshot.ruleExerciseAttempts), expectedRevision],
+            drill_queue = $4::jsonb, rule_exercise_attempts = $5::jsonb, objective_practice_attempts = $6::jsonb,
+              exam_sessions = $7::jsonb, deleted_exam_session_ids = $8::jsonb, exam_history_deleted_at = $9::timestamptz, revision = revision + 1, synced_at = NOW()
+              WHERE account_id = $1 AND revision = $10 RETURNING revision, synced_at`,
+          [accountId, JSON.stringify(snapshot.topicMastery), JSON.stringify(snapshot.weakSpotLog), JSON.stringify(snapshot.drillQueue), JSON.stringify(snapshot.ruleExerciseAttempts), JSON.stringify(snapshot.objectivePracticeAttempts ?? []), JSON.stringify(snapshot.examSessions ?? []), JSON.stringify(snapshot.deletedExamSessionIds ?? []), snapshot.examHistoryDeletedAt ?? null, expectedRevision],
     );
     const updated = result.rows[0];
     if (!updated) throw new ConflictError('Progress changed on the server. Reload before syncing again.');

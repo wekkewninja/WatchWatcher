@@ -5,6 +5,28 @@ import type { OnlineEvaluationRequest } from '@watchwatcher/shared/types';
 import { canConfirmDeletion, confirmDeletionReceipt, liveClient, logoutAccountSession } from './client';
 
 describe('live API client sessions', () => {
+  it('retains objective evidence and exam deletion metadata from cloud progress', async () => {
+    const accountId = '4a3eea85-72f6-4f90-a045-cf8fc2d83ff4';
+    const attempt = { id: '32f63760-6b39-4f06-935e-430251d1b785', questionId: 'question-1', topicId: 'topic-1', objectiveIds: ['objective-1'], correct: true, attemptedAt: '2026-11-27T12:00:00.000Z' };
+    const exam = {
+      id: '5b4ffb96-83a7-4f01-b156-d0fd3e94a885', startedAt: '2026-11-27T12:00:00.000Z', completedAt: '2026-11-27T12:05:00.000Z',
+      questionResults: [{ questionId: 'question-1', topicId: 'topic-1', objectiveIds: ['objective-1'], priority: 'critical', submittedAnswer: 'Answer', correct: true }],
+      score: 100, passed: true, criticalGatePassed: true,
+    };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId, session: 'progress-token', user: { id: accountId, name: 'Student', email: 'student@example.test' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        accountId, topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [],
+        objectivePracticeAttempts: [attempt], examSessions: [exam], deletedExamSessionIds: [exam.id],
+        examHistoryDeletedAt: '2026-11-27T12:06:00.000Z', revision: 3, syncedAt: null,
+      }), { status: 200 })));
+    await liveClient.login({ email: 'student@example.test', password: 'a-valid-password' });
+
+    await expect(liveClient.getProgress()).resolves.toMatchObject({
+      objectivePracticeAttempts: [attempt], examSessions: [exam], deletedExamSessionIds: [exam.id], examHistoryDeletedAt: '2026-11-27T12:06:00.000Z',
+    });
+  });
+
   it('exposes a bounded retry delay from rate-limit responses', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'Too many requests.' } }), {
       status: 429, headers: { 'Retry-After': '73' },

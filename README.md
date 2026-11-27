@@ -9,7 +9,7 @@ Offline-first RYA Yachtmaster and ASA 105/106/108 study, visual training, and op
 - `services/shared`: shared API types and Zod request schemas.
 - `services/watchwatcher-web/public/assets`: bundled syllabus and COLREGs reference data cached by the service worker.
 
-Study and deterministic grading work locally. IndexedDB progress is namespaced by signed-in account; rule exercise attempts are stored as uniquely identified events and merged idempotently with the account's PostgreSQL snapshot. Legacy shared-device progress is isolated in a guest namespace rather than assigned to whichever user signs in next. Sign-in, cloud synchronization, and Gemini grading are optional online enhancements; credentials remain on the API.
+Study, structured-choice grading, and objective-based progress calculations work locally. Curriculum and Exam free-text grading require explicit per-answer consent and online evaluation. IndexedDB progress is namespaced by signed-in account; rule and objective practice attempts plus completed Exam sessions are stored as uniquely identified events and merged idempotently with the account's revision-aware PostgreSQL snapshot. Practice mastery and Exam results remain distinct, and Exam history deletion synchronizes tombstones so offline deletion is not undone. Legacy shared-device progress is isolated in a guest namespace rather than assigned to whichever user signs in next. Sign-in, cloud synchronization, and Gemini grading are optional online enhancements; credentials remain on the API.
 
 ## Local setup
 

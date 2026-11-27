@@ -161,8 +161,8 @@ describe('AuthStateService', () => {
 
   it.each(['expired', 'authenticated'])('transitions %s identity to guest without erasing progress', async (state) => {
     const storage = new StorageRepository();
-    const accountProgress = { topicMastery: { account: 80 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
-    const guestProgress = { topicMastery: { guest: 20 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const accountProgress = { topicMastery: { account: 80 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
+    const guestProgress = { topicMastery: { guest: 20 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
     await storage.saveProgress(sailor.id, accountProgress);
     await storage.saveProgress('guest', guestProgress);
     sessionStorage.setItem('watchwatcher-signed-out', 'true');
@@ -334,7 +334,7 @@ describe('AuthStateService', () => {
     localStorage.setItem(`watchwatcher-deletion-intent:${owner}:two`, 'pending');
     localStorage.setItem('watchwatcher-deletion-intent:local-choice-other:one', 'pending');
     const storage = new StorageRepository();
-    const snapshot = { topicMastery: { topic: 50 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const snapshot = { topicMastery: { topic: 50 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
     await Promise.all(['guest', owner, 'local-choice-other'].map((id) => storage.saveProgress(id, snapshot)));
     const auth = new AuthStateService();
     await auth.eraseUnresolvedLocalData(owner);

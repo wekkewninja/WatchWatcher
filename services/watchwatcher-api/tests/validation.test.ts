@@ -65,4 +65,25 @@ describe('API input contracts', () => {
     expect(progressSyncSchema.safeParse({ topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [{ ...attempt, selectedOptionId: 'e' }], revision: 0 }).success).toBe(false);
     expect(progressSyncSchema.safeParse({ topicMastery: { topic: 120 }, weakSpotLog: [], drillQueue: [], revision: -1 }).success).toBe(false);
   });
+
+  it('accepts objective practice, completed exam records, and deletion tombstones', () => {
+    const sessionId = 'c0ddcd54-18b5-48be-8ed6-3ac44a173f64';
+    const parsed = progressSyncSchema.safeParse({
+      topicMastery: {}, weakSpotLog: [], drillQueue: [], revision: 0,
+      objectivePracticeAttempts: [{ id: '32f63760-6b39-4f06-935e-430251d1b785', questionId: 'question-1', topicId: 'topic-1', objectiveIds: ['objective-1'], correct: true, attemptedAt: '2026-11-27T12:00:00.000Z' }],
+      examSessions: [{
+        id: sessionId, startedAt: '2026-11-27T12:00:00.000Z', completedAt: '2026-11-27T12:05:00.000Z',
+        questionResults: [{ questionId: 'question-1', topicId: 'topic-1', objectiveIds: ['objective-1'], priority: 'critical', submittedAnswer: 'Answer', correct: true }],
+        score: 100, passed: true, criticalGatePassed: true,
+      }],
+      deletedExamSessionIds: ['6d7f0f39-96f6-4d86-b496-197c1e1ea7fd'],
+    });
+
+    expect(parsed.success).toBe(true);
+    expect(progressSyncSchema.parse({ topicMastery: {}, weakSpotLog: [], drillQueue: [], revision: 0 })).toMatchObject({ objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null });
+    expect(progressSyncSchema.safeParse({
+      topicMastery: {}, weakSpotLog: [], drillQueue: [], revision: 0,
+      examSessions: [{ id: sessionId, startedAt: '2026-11-27T12:00:00.000Z', completedAt: '2026-11-27T12:05:00.000Z', questionResults: [{ questionId: 'q', topicId: 't', objectiveIds: [], priority: 'urgent', submittedAnswer: '', correct: true }], score: 100, passed: true, criticalGatePassed: true }],
+    }).success).toBe(false);
+  });
 });

@@ -9,6 +9,17 @@ const legacySnapshotKey = 'current';
 const guestKey = 'guest';
 const deletionPrefix = 'watchwatcher-deleted:';
 
+function withProgressDefaults(progress: ProgressSnapshot): ProgressSnapshot {
+  return {
+    ...progress,
+    ruleExerciseAttempts: progress.ruleExerciseAttempts ?? [],
+    objectivePracticeAttempts: progress.objectivePracticeAttempts ?? [],
+    examSessions: progress.examSessions ?? [],
+    deletedExamSessionIds: progress.deletedExamSessionIds ?? [],
+    examHistoryDeletedAt: progress.examHistoryDeletedAt ?? null,
+  };
+}
+
 export function deletionMarkerKey(ownerId: string): string {
   return `${deletionPrefix}${ownerId}`;
 }
@@ -31,7 +42,7 @@ export class StorageRepository {
       transaction.oncomplete = () => {
         try {
           const stored = tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId)) || localStorage.getItem(localCleanupKey(ownerId)) ? undefined : request.result as ProgressSnapshot | undefined;
-          resolve(stored ? { ...stored, ruleExerciseAttempts: stored.ruleExerciseAttempts ?? [] } : null);
+          resolve(stored ? withProgressDefaults(stored) : null);
         } catch (error) { reject(error); }
         finally { db.close(); }
       };
@@ -60,8 +71,8 @@ export class StorageRepository {
             try {
               const stored = request.result as ProgressSnapshot | undefined;
               const current = stored
-                ? { ...stored, ruleExerciseAttempts: stored.ruleExerciseAttempts ?? [] }
-                : { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+                ? withProgressDefaults(stored)
+                : { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
               updated = update(current);
               store.put(updated, key);
             } catch (error) {
@@ -132,7 +143,7 @@ export class StorageRepository {
           legacy.onsuccess = () => {
             if (legacy.result !== undefined) {
               const progress = legacy.result as ProgressSnapshot;
-              store.put({ ...progress, ruleExerciseAttempts: progress.ruleExerciseAttempts ?? [] }, guestKey);
+              store.put(withProgressDefaults(progress), guestKey);
             }
             store.delete(legacySnapshotKey);
           };

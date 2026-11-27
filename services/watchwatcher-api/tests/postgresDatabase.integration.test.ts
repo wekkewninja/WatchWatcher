@@ -75,9 +75,27 @@ describe.skipIf(!databaseUrl)('PostgreSQL progress isolation and revisions', () 
       await database.revokeSession(revoked, accountA);
       expect(await database.findSessionAccount(revoked, accountA)).toBeNull();
       await expect(database.deleteAccount(accountA, { type: 'password', passwordHash: 'hash' }, revoked, new Date(Date.now() + 60000))).rejects.toMatchObject({ statusCode: 401 });
-      const snapshot = { topicMastery: { 'rule-5': 70 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+      const examId = randomUUID();
+      const deletedExamId = randomUUID();
+      const snapshot = {
+        topicMastery: { 'rule-5': 70 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [],
+        objectivePracticeAttempts: [{ id: randomUUID(), questionId: 'question-1', topicId: 'topic-a', objectiveIds: ['objective-a'], correct: true, attemptedAt: '2026-11-27T12:00:00.000Z' }],
+        examSessions: [{
+          id: examId, startedAt: '2026-11-27T12:00:00.000Z', completedAt: '2026-11-27T12:05:00.000Z',
+          questionResults: [{ questionId: 'question-1', topicId: 'topic-a', objectiveIds: ['objective-a'], priority: 'critical' as const, submittedAnswer: 'Answer', correct: true }],
+          score: 100, passed: true, criticalGatePassed: true,
+        }],
+        deletedExamSessionIds: [deletedExamId],
+        examHistoryDeletedAt: '2026-11-27T12:06:00.000Z',
+      };
 
       expect((await database.saveProgress(accountA, snapshot, 0)).revision).toBe(1);
+      await expect(database.getProgress(accountA)).resolves.toMatchObject({
+        objectivePracticeAttempts: snapshot.objectivePracticeAttempts,
+        examSessions: snapshot.examSessions,
+        deletedExamSessionIds: [deletedExamId],
+        examHistoryDeletedAt: snapshot.examHistoryDeletedAt,
+      });
       expect((await database.saveProgress(accountA, { ...snapshot, topicMastery: { 'rule-5': 90 } }, 1)).revision).toBe(2);
       await expect(database.saveProgress(accountA, snapshot, 1)).rejects.toMatchObject({ statusCode: 409 });
       await expect(database.getProgress(accountB)).resolves.toBeNull();

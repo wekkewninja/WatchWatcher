@@ -1,17 +1,30 @@
 import { Injectable } from '@angular/core';
 import { api, getAuthenticatedAccountId } from '../../api';
-import type { ColregsRule, EvaluationResult, ProgressSnapshot, RuleExerciseAttempt } from '../domain-types';
+import type { ColregsRule, ExamSession, ObjectivePracticeAttempt, ProgressSnapshot, RuleExerciseAttempt } from '../domain-types';
 import { AuthStateService } from './auth-state.service';
 import { StorageRepository } from './storage-repository.service';
 import { LocaleService } from './locale.service';
 
 export function emptyProgressSnapshot(): ProgressSnapshot {
-  return { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+  return { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
 }
 
 export function mergeProgressSnapshots(local: ProgressSnapshot, remote: ProgressSnapshot): ProgressSnapshot {
   const attempts = new Map<string, RuleExerciseAttempt>();
   for (const attempt of [...local.ruleExerciseAttempts, ...remote.ruleExerciseAttempts]) attempts.set(attempt.id, attempt);
+  const practiceAttempts = new Map<string, ObjectivePracticeAttempt>();
+  for (const attempt of [...(local.objectivePracticeAttempts ?? []), ...(remote.objectivePracticeAttempts ?? [])]) practiceAttempts.set(attempt.id, attempt);
+  const deletedExamSessionIds = [...new Set([...(local.deletedExamSessionIds ?? []), ...(remote.deletedExamSessionIds ?? [])])];
+  const deletedIds = new Set(deletedExamSessionIds);
+  const examHistoryDeletedAt = [local.examHistoryDeletedAt, remote.examHistoryDeletedAt]
+    .filter((timestamp): timestamp is string => !!timestamp)
+    .sort()
+    .at(-1) ?? null;
+  const historyClearTime = examHistoryDeletedAt ? Date.parse(examHistoryDeletedAt) : Number.NEGATIVE_INFINITY;
+  const examSessions = new Map<string, ExamSession>();
+  for (const session of [...(local.examSessions ?? []), ...(remote.examSessions ?? [])]) {
+    if (!deletedIds.has(session.id) && Date.parse(session.completedAt) > historyClearTime) examSessions.set(session.id, session);
+  }
   const weakSpots = new Map<string, ProgressSnapshot['weakSpotLog'][number]>();
   for (const spot of [...local.weakSpotLog, ...remote.weakSpotLog]) {
     weakSpots.set(`${spot.topicId}:${spot.tag}:${spot.timestamp}`, spot);
@@ -23,6 +36,10 @@ export function mergeProgressSnapshots(local: ProgressSnapshot, remote: Progress
     weakSpotLog: [...weakSpots.values()].sort((first, second) => first.timestamp.localeCompare(second.timestamp)),
     drillQueue: [...new Set([...local.drillQueue, ...remote.drillQueue])],
     ruleExerciseAttempts: [...attempts.values()].sort((first, second) => first.attemptedAt.localeCompare(second.attemptedAt)),
+    objectivePracticeAttempts: [...practiceAttempts.values()].sort((first, second) => first.attemptedAt.localeCompare(second.attemptedAt)),
+    examSessions: [...examSessions.values()].sort((first, second) => first.completedAt.localeCompare(second.completedAt)),
+    deletedExamSessionIds,
+    examHistoryDeletedAt,
   };
 }
 
@@ -32,7 +49,14 @@ function hasProgressNotOnServer(merged: ProgressSnapshot, remote: ProgressSnapsh
   const remoteWeakSpots = new Set(remote.weakSpotLog.map((spot) => `${spot.topicId}:${spot.tag}:${spot.timestamp}`));
   if (merged.weakSpotLog.some((spot) => !remoteWeakSpots.has(`${spot.topicId}:${spot.tag}:${spot.timestamp}`))) return true;
   const remoteAttemptIds = new Set(remote.ruleExerciseAttempts.map((attempt) => attempt.id));
-  return merged.ruleExerciseAttempts.some((attempt) => !remoteAttemptIds.has(attempt.id));
+  if (merged.ruleExerciseAttempts.some((attempt) => !remoteAttemptIds.has(attempt.id))) return true;
+  const remotePracticeIds = new Set((remote.objectivePracticeAttempts ?? []).map((attempt) => attempt.id));
+  if ((merged.objectivePracticeAttempts ?? []).some((attempt) => !remotePracticeIds.has(attempt.id))) return true;
+  const remoteExamIds = new Set((remote.examSessions ?? []).map((session) => session.id));
+  if ((merged.examSessions ?? []).some((session) => !remoteExamIds.has(session.id))) return true;
+  const remoteDeletedIds = new Set(remote.deletedExamSessionIds ?? []);
+  if ((merged.deletedExamSessionIds ?? []).some((id) => !remoteDeletedIds.has(id))) return true;
+  return (merged.examHistoryDeletedAt ?? null) !== (remote.examHistoryDeletedAt ?? null);
 }
 
 export interface RuleExerciseSummary {
@@ -115,22 +139,6 @@ export class StudentMemoryService {
     return api.syncProgress(merged);
   }
 
-  async recordEvaluation(topicId: string, evaluation: EvaluationResult, initialMastery: number): Promise<void> {
-    const ownerId = this.ownerId();
-    const generation = this.auth.accountGeneration;
-    await this.storage.updateProgress(ownerId, (current) => {
-      this.ensureOwner(ownerId, generation);
-      const progress = { ...emptyProgressSnapshot(), ...current };
-      const previous = progress.topicMastery[topicId] ?? initialMastery;
-      progress.topicMastery[topicId] = Math.round(previous * 0.7 + evaluation.score * 100 * 0.3);
-      if (evaluation.misconceptionTag) {
-        progress.weakSpotLog.unshift({ topicId, tag: evaluation.misconceptionTag, timestamp: new Date().toISOString() });
-        progress.drillQueue = [...new Set([topicId, ...progress.drillQueue])];
-      }
-      return progress;
-    });
-  }
-
   async recordRuleExerciseAttempt(ruleId: string, selectedOptionId: string, correctOptionId: string): Promise<ProgressSnapshot> {
     const ownerId = this.ownerId();
     const generation = this.auth.accountGeneration;
@@ -154,7 +162,49 @@ export class StudentMemoryService {
       return updated;
     });
     this.ensureOwner(ownerId, generation);
-    if (this.ownerId() === ownerId && getAuthenticatedAccountId() === ownerId) void api.syncProgress(progress).catch(() => undefined);
+    this.syncInBackground(ownerId, generation);
+    return progress;
+  }
+
+  async recordObjectivePracticeAttempt(input: Omit<ObjectivePracticeAttempt, 'id' | 'attemptedAt'>): Promise<ObjectivePracticeAttempt> {
+    const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
+    const attempt: ObjectivePracticeAttempt = { ...input, objectiveIds: [...new Set(input.objectiveIds)], id: crypto.randomUUID(), attemptedAt: new Date().toISOString() };
+    const progress = await this.storage.updateProgress(ownerId, (current) => {
+      this.ensureOwner(ownerId, generation);
+      return { ...emptyProgressSnapshot(), ...current, objectivePracticeAttempts: [...(current.objectivePracticeAttempts ?? []), attempt] };
+    });
+    this.ensureOwner(ownerId, generation);
+    this.syncInBackground(ownerId, generation);
+    return attempt;
+  }
+
+  async recordExamSession(session: ExamSession): Promise<ProgressSnapshot> {
+    const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
+    const progress = await this.storage.updateProgress(ownerId, (current) => {
+      this.ensureOwner(ownerId, generation);
+      const deleted = new Set(current.deletedExamSessionIds ?? []);
+      if (deleted.has(session.id)) throw new Error('This exam session was deleted.');
+      const sessions = new Map((current.examSessions ?? []).map((item) => [item.id, item]));
+      sessions.set(session.id, session);
+      return { ...emptyProgressSnapshot(), ...current, examSessions: [...sessions.values()] };
+    });
+    this.ensureOwner(ownerId, generation);
+    this.syncInBackground(ownerId, generation);
+    return progress;
+  }
+
+  async deleteExamHistory(): Promise<ProgressSnapshot> {
+    const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
+    const progress = await this.storage.updateProgress(ownerId, (current) => {
+      this.ensureOwner(ownerId, generation);
+      const deletedExamSessionIds = [...new Set([...(current.deletedExamSessionIds ?? []), ...(current.examSessions ?? []).map((session) => session.id)])];
+      return { ...emptyProgressSnapshot(), ...current, examSessions: [], deletedExamSessionIds, examHistoryDeletedAt: new Date().toISOString() };
+    });
+    this.ensureOwner(ownerId, generation);
+    this.syncInBackground(ownerId, generation);
     return progress;
   }
 
@@ -164,5 +214,11 @@ export class StudentMemoryService {
 
   private ensureOwner(ownerId: string, generation: number): void {
     if (this.ownerId() !== ownerId || this.auth.accountGeneration !== generation) throw new Error(this.locales.translate('progress.accountChanged'));
+  }
+
+  private syncInBackground(ownerId: string, generation: number): void {
+    if (this.ownerId() === ownerId && this.auth.accountGeneration === generation && getAuthenticatedAccountId() === ownerId) {
+      void this.syncProgress().catch(() => undefined);
+    }
   }
 }

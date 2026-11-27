@@ -5,6 +5,9 @@ import type {
   ProgressSyncResponse,
   PublicAccount,
   SessionResponse,
+  ExamQuestionResult,
+  ExamSession,
+  ObjectivePracticeAttempt,
   RuleExerciseAttempt,
   StoredProgress,
 } from '@watchwatcher/shared/types';
@@ -145,6 +148,57 @@ function parseProgress(value: unknown): StoredProgress {
       attemptedAt: text(attempt['attemptedAt'], 'exercise attempt timestamp'),
     } satisfies RuleExerciseAttempt;
   });
+  const objectivePracticeAttempts = array(progress['objectivePracticeAttempts'] ?? [], 'objective practice attempts').map((value) => {
+    const attempt = object(value, 'objective practice attempt');
+    const correct = attempt['correct'];
+    if (typeof correct !== 'boolean') throw new Error('The API returned an invalid objective practice result.');
+    return {
+      id: text(attempt['id'], 'objective practice attempt id'),
+      questionId: text(attempt['questionId'], 'objective practice question id'),
+      topicId: text(attempt['topicId'], 'objective practice topic id'),
+      objectiveIds: array(attempt['objectiveIds'], 'objective practice objective ids').map((id) => text(id, 'objective practice objective id')),
+      correct,
+      attemptedAt: text(attempt['attemptedAt'], 'objective practice timestamp'),
+    } satisfies ObjectivePracticeAttempt;
+  });
+  const examSessions = array(progress['examSessions'] ?? [], 'exam sessions').map((value) => {
+    const session = object(value, 'exam session');
+    const passed = session['passed'];
+    const criticalGatePassed = session['criticalGatePassed'];
+    if (typeof passed !== 'boolean' || typeof criticalGatePassed !== 'boolean') throw new Error('The API returned an invalid exam outcome.');
+    const questionResults = array(session['questionResults'], 'exam question results').map((entry) => {
+      const result = object(entry, 'exam question result');
+      const priority = result['priority'];
+      const correct = result['correct'];
+      if ((priority !== 'critical' && priority !== 'major' && priority !== 'minor') || (correct !== null && typeof correct !== 'boolean')) {
+        throw new Error('The API returned an invalid exam answer result.');
+      }
+      return {
+        questionId: text(result['questionId'], 'exam question id'),
+        topicId: text(result['topicId'], 'exam topic id'),
+        objectiveIds: array(result['objectiveIds'], 'exam objective ids').map((id) => text(id, 'exam objective id')),
+        priority,
+        submittedAnswer: text(result['submittedAnswer'], 'submitted exam answer'),
+        correct,
+      } satisfies ExamQuestionResult;
+    });
+    const score = finiteNumber(session['score'], 'exam score');
+    if (score < 0 || score > 100) throw new Error('The API returned an out-of-range exam score.');
+    return {
+      id: text(session['id'], 'exam session id'),
+      startedAt: text(session['startedAt'], 'exam start timestamp'),
+      completedAt: text(session['completedAt'], 'exam completion timestamp'),
+      questionResults,
+      score,
+      passed,
+      criticalGatePassed,
+    } satisfies ExamSession;
+  });
+  const deletedExamSessionIds = array(progress['deletedExamSessionIds'] ?? [], 'deleted exam session ids').map((id) => text(id, 'deleted exam session id'));
+  const rawExamHistoryDeletedAt = progress['examHistoryDeletedAt'];
+  if (rawExamHistoryDeletedAt !== undefined && rawExamHistoryDeletedAt !== null && typeof rawExamHistoryDeletedAt !== 'string') {
+    throw new Error('The API returned an invalid exam-history deletion timestamp.');
+  }
   const revision = finiteNumber(progress['revision'], 'progress revision');
   const syncedAt = progress['syncedAt'];
   if (typeof syncedAt !== 'string' && syncedAt !== null) throw new Error('The API returned an invalid sync timestamp.');
@@ -154,6 +208,10 @@ function parseProgress(value: unknown): StoredProgress {
     weakSpotLog,
     drillQueue,
     ruleExerciseAttempts,
+    objectivePracticeAttempts,
+    examSessions,
+    deletedExamSessionIds,
+    examHistoryDeletedAt: rawExamHistoryDeletedAt === undefined || rawExamHistoryDeletedAt === null ? null : text(rawExamHistoryDeletedAt, 'exam-history deletion timestamp'),
     revision,
     syncedAt,
   };
@@ -571,8 +629,17 @@ export const liveClient: ApiClient = {
     }).filter((rule) => !normalized || `${rule.ruleNumber} ${rule.title} ${rule.summary} ${rule.keywords.join(' ')}`.toLowerCase().includes(normalized));
   },
   async getProgress(): Promise<ProgressSnapshot> {
-    const { topicMastery, weakSpotLog, drillQueue, ruleExerciseAttempts } = await readProgress();
-    return { topicMastery, weakSpotLog, drillQueue, ruleExerciseAttempts };
+    const progress = await readProgress();
+    return {
+      topicMastery: progress.topicMastery,
+      weakSpotLog: progress.weakSpotLog,
+      drillQueue: progress.drillQueue,
+      ruleExerciseAttempts: progress.ruleExerciseAttempts,
+      objectivePracticeAttempts: progress.objectivePracticeAttempts ?? [],
+      examSessions: progress.examSessions ?? [],
+      deletedExamSessionIds: progress.deletedExamSessionIds ?? [],
+      examHistoryDeletedAt: progress.examHistoryDeletedAt ?? null,
+    };
   },
   async syncProgress(snapshot: ProgressSnapshot, revision?: number): Promise<ProgressSyncResponse> {
     const tokenAtStart = sessionToken;

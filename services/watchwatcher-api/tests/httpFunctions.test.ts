@@ -183,13 +183,13 @@ describe('HTTP function contracts', () => {
     const input = request({}, 'Bearer example');
     expect(await invoke('authMe', input)).toMatchObject({ status: 200, jsonBody: { user: account } });
     mocks.database.getProgress.mockResolvedValue(null);
-    expect(await invoke('getProgress', input)).toMatchObject({ status: 200, jsonBody: { accountId: account.id, revision: 0, ruleExerciseAttempts: [] } });
+    expect(await invoke('getProgress', input)).toMatchObject({ status: 200, jsonBody: { accountId: account.id, revision: 0, ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null } });
     expect(mocks.auth.authenticate).toHaveBeenCalledWith('Bearer example');
     expect(mocks.database.getProgress).toHaveBeenCalledWith(account.id);
   });
 
   it('returns existing progress and synchronizes a validated snapshot for the authenticated account', async () => {
-    const snapshot = { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    const snapshot = { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [], objectivePracticeAttempts: [], examSessions: [], deletedExamSessionIds: [], examHistoryDeletedAt: null };
     const stored = { accountId: account.id, ...snapshot, revision: 3, syncedAt: '2026-01-01T00:00:00.000Z' };
     mocks.database.getProgress.mockResolvedValue(stored);
     mocks.database.saveProgress.mockResolvedValue({ revision: 4, syncedAt: '2026-01-01T01:00:00.000Z' });
