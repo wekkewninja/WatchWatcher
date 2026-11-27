@@ -7,6 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSliderModule } from '@angular/material/slider';
 import * as L from 'leaflet';
 import { NavigationMathService } from '../core/services/navigation-math.service';
+import { LocaleService, TranslationPipe } from '../core/locale.service';
 
 interface ChartRegion {
   id: string;
@@ -24,15 +25,15 @@ const chartRegions: ChartRegion[] = [
 @Component({
   selector: 'ww-chart-vector-canvas',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatIconModule, MatSelectModule, MatSliderModule],
+  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatIconModule, MatSelectModule, MatSliderModule, TranslationPipe],
   template: `
-    <mat-card class="vector-card"><mat-card-header><mat-icon mat-card-avatar>explore</mat-icon><mat-card-title>Course to steer</mat-card-title><mat-card-subtitle>Exact-scale vector sandbox · {{ hours }} h</mat-card-subtitle></mat-card-header>
+    <mat-card class="vector-card"><mat-card-header><mat-icon mat-card-avatar>explore</mat-icon><mat-card-title>{{ 'chart.title' | t }}</mat-card-title><mat-card-subtitle>{{ 'chart.subtitle' | t: { hours } }}</mat-card-subtitle></mat-card-header>
       <mat-card-content>
-        <div class="chart-toolbar"><mat-form-field appearance="outline" class="region-control"><mat-label>Chart area</mat-label><mat-select [(ngModel)]="regionKey" (ngModelChange)="changeRegion($event)">@for (region of regions; track region.id) { <mat-option [value]="region.id">{{ region.name }}</mat-option> }</mat-select></mat-form-field><span class="chart-scale"><mat-icon>straighten</mat-icon> {{ regionName }} · nautical miles over {{ hours }} h</span></div>
-        <div #chartMap class="nautical-chart" role="application" aria-label="Interactive nautical chart with calculated Fix, DR, EP, and course vectors"></div>
-        <div class="chart-legend" aria-label="Vector legend"><span><i class="legend-fix"></i>Fix</span><span><i class="legend-dr"></i>DR</span><span><i class="legend-ep"></i>EP</span><span>Water <b>›</b><small>{{ waterDistance }} NM</small></span><span>Ground <b>››</b><small>{{ groundDistance }} NM</small></span><span>Tide <b>›››</b><small>{{ tideDistance }} NM</small></span><strong>COG {{ cog }}°T · SOG {{ sog }} kn</strong></div>
-      <div class="vector-controls"><label>Boat speed <strong>{{ boatSpeed.toFixed(1) }} kn</strong><mat-slider min="1" max="10" step="0.5"><input matSliderThumb [(ngModel)]="boatSpeed" (ngModelChange)="updatePlot()"></mat-slider></label><label>Tide rate <strong>{{ tideRate.toFixed(1) }} kn</strong><mat-slider min="0" max="5" step="0.25"><input matSliderThumb [(ngModel)]="tideRate" (ngModelChange)="updatePlot()"></mat-slider></label><label>Water heading <strong>{{ heading }}°T</strong><mat-slider min="0" max="359" step="1"><input matSliderThumb [(ngModel)]="heading" (ngModelChange)="updatePlot()"></mat-slider></label><label>Tide set <strong>{{ tideSet }}°T</strong><mat-slider min="0" max="359" step="1"><input matSliderThumb [(ngModel)]="tideSet" (ngModelChange)="updatePlot()"></mat-slider></label><label>Elapsed time <strong>{{ hours.toFixed(1) }} h</strong><mat-slider min="0.5" max="6" step="0.5"><input matSliderThumb [(ngModel)]="hours" (ngModelChange)="updatePlot()"></mat-slider></label></div>
-      @if (tideRate > boatSpeed) { <p class="vector-warning"><mat-icon>warning</mat-icon> Tide exceeds boat speed. Direct cross-current track may be impossible.</p> }
+        <div class="chart-toolbar"><mat-form-field appearance="outline" class="region-control"><mat-label>{{ 'chart.area' | t }}</mat-label><mat-select [(ngModel)]="regionKey" (ngModelChange)="changeRegion($event)">@for (region of regions; track region.id) { <mat-option [value]="region.id">{{ region.name }}</mat-option> }</mat-select></mat-form-field><span class="chart-scale"><mat-icon>straighten</mat-icon> {{ 'chart.scale' | t: { region: regionName, hours } }}</span></div>
+        <div #chartMap class="nautical-chart" role="application" [attr.aria-label]="'chart.mapAria' | t"></div>
+        <div class="chart-legend" [attr.aria-label]="'chart.legendAria' | t"><span><i class="legend-fix"></i>Fix</span><span><i class="legend-dr"></i>DR</span><span><i class="legend-ep"></i>EP</span><span>{{ 'chart.water' | t }} <b>›</b><small>{{ waterDistance }} NM</small></span><span>{{ 'chart.ground' | t }} <b>››</b><small>{{ groundDistance }} NM</small></span><span>{{ 'chart.tide' | t }} <b>›››</b><small>{{ tideDistance }} NM</small></span><strong>{{ 'chart.cogSog' | t: { cog, sog } }}</strong></div>
+      <div class="vector-controls"><label>{{ 'chart.boatSpeed' | t }} <strong>{{ boatSpeed.toFixed(1) }} kn</strong><mat-slider min="1" max="10" step="0.5"><input matSliderThumb [(ngModel)]="boatSpeed" (ngModelChange)="updatePlot()"></mat-slider></label><label>{{ 'chart.tideRate' | t }} <strong>{{ tideRate.toFixed(1) }} kn</strong><mat-slider min="0" max="5" step="0.25"><input matSliderThumb [(ngModel)]="tideRate" (ngModelChange)="updatePlot()"></mat-slider></label><label>{{ 'chart.waterHeading' | t }} <strong>{{ heading }}°T</strong><mat-slider min="0" max="359" step="1"><input matSliderThumb [(ngModel)]="heading" (ngModelChange)="updatePlot()"></mat-slider></label><label>{{ 'chart.tideSet' | t }} <strong>{{ tideSet }}°T</strong><mat-slider min="0" max="359" step="1"><input matSliderThumb [(ngModel)]="tideSet" (ngModelChange)="updatePlot()"></mat-slider></label><label>{{ 'chart.elapsedTime' | t }} <strong>{{ hours.toFixed(1) }} h</strong><mat-slider min="0.5" max="6" step="0.5"><input matSliderThumb [(ngModel)]="hours" (ngModelChange)="updatePlot()"></mat-slider></label></div>
+      @if (tideRate > boatSpeed) { <p class="vector-warning"><mat-icon>warning</mat-icon> {{ 'chart.warning' | t }}</p> }
       </mat-card-content>
     </mat-card>
   `,
@@ -40,7 +41,7 @@ const chartRegions: ChartRegion[] = [
 export class ChartVectorCanvasComponent implements AfterViewInit, OnDestroy {
   @ViewChild('chartMap', { static: true }) private chartElement!: ElementRef<HTMLDivElement>;
 
-  constructor(private readonly navigationMath: NavigationMathService) {}
+  constructor(private readonly navigationMath: NavigationMathService, private readonly locales: LocaleService = new LocaleService()) {}
 
   readonly regions = chartRegions;
   regionKey = 'solent';
@@ -140,7 +141,7 @@ export class ChartVectorCanvasComponent implements AfterViewInit, OnDestroy {
     const magnitude = 10 ** Math.floor(Math.log10(approximateNm));
     const factor = [1, 2, 5, 10].find((candidate) => candidate * magnitude >= approximateNm) ?? 10;
     const scaleNm = factor * magnitude;
-    this.scaleLabel.textContent = `${scaleNm} NM`;
+    this.scaleLabel.textContent = this.locales.translate('chart.scaleNm', { distance: scaleNm });
     this.scaleLine.style.width = `${scaleNm * pixelsPerNm}px`;
   };
 

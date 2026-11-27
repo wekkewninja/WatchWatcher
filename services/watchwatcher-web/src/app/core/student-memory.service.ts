@@ -3,6 +3,7 @@ import { api, getAuthenticatedAccountId } from '../../api';
 import type { ColregsRule, EvaluationResult, ProgressSnapshot, RuleExerciseAttempt } from '../domain-types';
 import { AuthStateService } from './auth-state.service';
 import { StorageRepository } from './storage-repository.service';
+import { LocaleService } from './locale.service';
 
 export function emptyProgressSnapshot(): ProgressSnapshot {
   return { topicMastery: {}, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
@@ -69,7 +70,7 @@ export function selectNextRuleExercise(rules: ColregsRule[], progress: ProgressS
 
 @Injectable({ providedIn: 'root' })
 export class StudentMemoryService {
-  constructor(private readonly storage: StorageRepository, private readonly auth: AuthStateService) {}
+  constructor(private readonly storage: StorageRepository, private readonly auth: AuthStateService, private readonly locales: LocaleService = new LocaleService()) {}
 
   async loadProgress(): Promise<ProgressSnapshot | null> {
     const ownerId = this.ownerId();
@@ -85,7 +86,7 @@ export class StudentMemoryService {
     const generation = this.auth.accountGeneration;
     let merged = emptyProgressSnapshot();
     try {
-      if (getAuthenticatedAccountId() !== ownerId || ownerId === 'guest') throw new Error('No matching account session.');
+      if (getAuthenticatedAccountId() !== ownerId || ownerId === 'guest') throw new Error(this.locales.translate('progress.noMatchingSession'));
       const remote = await api.getProgress();
       merged = await this.storage.updateProgress(ownerId, (local) => {
         this.ensureOwner(ownerId, generation);
@@ -104,7 +105,7 @@ export class StudentMemoryService {
   async syncProgress(): Promise<{ syncedAt: string; revision: number }> {
     const ownerId = this.ownerId();
     const generation = this.auth.accountGeneration;
-    if (ownerId === 'guest' || getAuthenticatedAccountId() !== ownerId) throw new Error("Sign in to synchronize this account's progress.");
+    if (ownerId === 'guest' || getAuthenticatedAccountId() !== ownerId) throw new Error(this.locales.translate('progress.signInToSync'));
     const remote = await api.getProgress();
     const merged = await this.storage.updateProgress(ownerId, (local) => {
       this.ensureOwner(ownerId, generation);
@@ -162,6 +163,6 @@ export class StudentMemoryService {
   }
 
   private ensureOwner(ownerId: string, generation: number): void {
-    if (this.ownerId() !== ownerId || this.auth.accountGeneration !== generation) throw new Error('Account changed while recording progress. Reload before continuing.');
+    if (this.ownerId() !== ownerId || this.auth.accountGeneration !== generation) throw new Error(this.locales.translate('progress.accountChanged'));
   }
 }

@@ -6,49 +6,50 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
 import { AuthStateService } from '../core/auth-state.service';
+import { LocaleService, TranslationPipe } from '../core/locale.service';
 import { ExaminerAiService } from '../core/services/examiner-ai.service';
 import { AssessmentQuestionBankService } from '../core/services/assessment-question-bank.service';
 import { selectExamQuestions, type AssessmentQuestion } from '../core/services/assessment-question-bank';
 
 @Component({
   standalone: true,
-  imports: [TitleCasePipe, RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule],
+  imports: [TitleCasePipe, RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, TranslationPipe],
   template: `
     <main class="page-content assessment-exam-page">
       <header class="page-heading">
-        <div><span class="eyebrow">Yachtmaster · randomized assessment</span><h1>Exam</h1><p>Every Critical question is included; five additional Major or Minor questions are sampled for each attempt.</p></div>
-        <button mat-stroked-button type="button" [disabled]="evaluating()" (click)="startNewExam()"><mat-icon>shuffle</mat-icon> New exam</button>
+        <div><span class="eyebrow">{{ 'exam.eyebrow' | t }}</span><h1>{{ 'exam.heading' | t }}</h1><p>{{ 'exam.description' | t }}</p></div>
+        <button mat-stroked-button type="button" [disabled]="evaluating()" (click)="startNewExam()"><mat-icon>shuffle</mat-icon> {{ 'exam.newExam' | t }}</button>
       </header>
       @if (loading()) {
-        <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>Building your exam</p></mat-card>
+        <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>{{ 'exam.building' | t }}</p></mat-card>
       } @else if (error()) {
-        <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>Exam unavailable</strong><p>{{ error() }}</p></div><button mat-stroked-button type="button" (click)="startNewExam()">Try again</button></mat-card>
+        <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>{{ 'exam.unavailable' | t }}</strong><p>{{ error() }}</p></div><button mat-stroked-button type="button" (click)="startNewExam()">{{ 'exam.tryAgain' | t }}</button></mat-card>
       } @else if (finished()) {
         <section class="exam-summary" aria-live="polite">
           <mat-icon>fact_check</mat-icon>
-          <h2>Exam complete</h2>
-          <p>{{ correctCount() }} of {{ checkedCount() }} answered questions correct · {{ questions().length - checkedCount() }} not checked</p>
-          <p>{{ criticalCount() }} Critical questions were included, along with {{ supplementalCount() }} randomized Major/Minor questions.</p>
-          <div class="exam-summary-actions"><button mat-flat-button type="button" (click)="reviewExam()"><mat-icon>fact_check</mat-icon> Review answers</button><button mat-stroked-button type="button" (click)="startNewExam()"><mat-icon>shuffle</mat-icon> New exam</button></div>
+          <h2>{{ 'exam.complete' | t }}</h2>
+          <p>{{ 'exam.results' | t: { correct: correctCount(), checked: checkedCount(), unchecked: questions().length - checkedCount() } }}</p>
+          <p>{{ 'exam.compositionSummary' | t: { critical: criticalCount(), supplemental: supplementalCount() } }}</p>
+          <div class="exam-summary-actions"><button mat-flat-button type="button" (click)="reviewExam()"><mat-icon>fact_check</mat-icon> {{ 'exam.reviewAnswers' | t }}</button><button mat-stroked-button type="button" (click)="startNewExam()"><mat-icon>shuffle</mat-icon> {{ 'exam.newExam' | t }}</button></div>
         </section>
       } @else if (!started()) {
         <section class="exam-intro" aria-labelledby="exam-intro-heading">
           <mat-icon>fact_check</mat-icon>
-          <h2 id="exam-intro-heading">Exam composition</h2>
-          <p><strong>{{ criticalCount() }} Critical questions</strong> are guaranteed in this exam.</p>
-          <p>{{ supplementalCount() }} additional Major/Minor questions were selected at random without replacement.</p>
-          <button mat-flat-button type="button" (click)="beginExam()"><mat-icon>play_arrow</mat-icon> Start exam</button>
+          <h2 id="exam-intro-heading">{{ 'exam.composition' | t }}</h2>
+          <p><strong>{{ 'exam.criticalGuaranteed' | t: { count: criticalCount() } }}</strong></p>
+          <p>{{ 'exam.supplementalRandomized' | t: { count: supplementalCount() } }}</p>
+          <button mat-flat-button type="button" (click)="beginExam()"><mat-icon>play_arrow</mat-icon> {{ 'exam.start' | t }}</button>
         </section>
       } @else if (currentQuestion(); as question) {
         <section class="exam-panel" aria-labelledby="exam-question-heading">
-          <div class="exam-progress-meta"><span>{{ question.sectionTitle }}</span><span>Question {{ currentIndex() + 1 }} of {{ questions().length }}</span></div>
-          <mat-progress-bar mode="determinate" [value]="progressPercent()" aria-label="Exam progress"/>
+          <div class="exam-progress-meta"><span>{{ question.sectionTitle }}</span><span>{{ 'exam.questionPosition' | t: { current: currentIndex() + 1, total: questions().length } }}</span></div>
+          <mat-progress-bar mode="determinate" [value]="progressPercent()" [attr.aria-label]="'exam.progress' | t"/>
           <div class="exam-question-meta"><span class="priority-label" [class.priority-critical]="question.priority === 'critical'" [class.priority-major]="question.priority === 'major'" [class.priority-minor]="question.priority === 'minor'" [title]="question.priorityRationale">{{ question.priority | titlecase }}</span><span>{{ question.sourceRef }}</span></div>
           <h2 id="exam-question-heading">{{ question.prompt }}</h2>
 
           @if (question.type === 'choice') {
             <fieldset class="exam-options">
-              <legend>Choose the best answer</legend>
+              <legend>{{ 'exam.chooseBestAnswer' | t }}</legend>
               @for (option of question.options; track option.id) {
                 <label [class.selected]="response() === option.id">
                   <input type="radio" name="exam-answer" [value]="option.id" [checked]="response() === option.id" (change)="setResponse(option.id)">
@@ -57,20 +58,20 @@ import { selectExamQuestions, type AssessmentQuestion } from '../core/services/a
               }
             </fieldset>
           } @else {
-            <label class="exam-short-answer"><span>Your answer</span><textarea rows="5" [disabled]="evaluating()" [value]="response()" (input)="setResponseFromEvent($event)" placeholder="Write your response"></textarea></label>
+            <label class="exam-short-answer"><span>{{ 'exam.yourAnswer' | t }}</span><textarea rows="5" [disabled]="evaluating()" [value]="response()" (input)="setResponseFromEvent($event)" [placeholder]="'exam.writeResponse' | t"></textarea></label>
             @if (!currentResult()) {
-              <p>Online checking sends the topic, question, reference, model answer, explanation, and your answer to Google Gemini for evaluation.</p>
-              <label><input type="checkbox" [checked]="hasConsent()" (change)="setConsent($event)"> I agree to send this answer to Google for online evaluation.</label>
-              <p>Free-text checking requires an online account. <a routerLink="/examiner">Practice structured exercises offline</a>, or skip this answer without grading.</p>
-              <p>AI judgments can be wrong and are not authoritative navigation guidance.</p>
-              @if (response().trim().length > 12000) { <p role="alert">Shorten your answer to 12,000 characters or fewer before checking.</p> }
+              <p>{{ 'exam.onlineEvaluationDisclosure' | t }}</p>
+              <label><input type="checkbox" [checked]="hasConsent()" (change)="setConsent($event)"> {{ 'exam.onlineConsent' | t }}</label>
+              <p>{{ 'exam.onlineAccountRequired' | t }} <a routerLink="/examiner">{{ 'exam.offlineStructuredPractice' | t }}</a>{{ 'exam.skipWithoutGradingSentence' | t }}</p>
+              <p>{{ 'exam.aiDisclaimer' | t }}</p>
+              @if (response().trim().length > 12000) { <p role="alert">{{ 'exam.answerTooLong' | t }}</p> }
               @if (evaluationError()) { <p role="alert">{{ evaluationError() }}</p> }
             }
           }
 
           @if (currentResult(); as result) {
             <div class="exam-feedback" [class.correct]="result.correct" role="status">
-              <strong>{{ result.correct === null ? 'Not graded' : result.correct ? 'Correct' : 'Review this answer' }}</strong>
+              <strong>{{ (result.correct === null ? 'exam.notGraded' : result.correct ? 'exam.correct' : 'exam.reviewAnswer') | t }}</strong>
               @if (result.correct !== null) {
                 <p>{{ question.explanation }}</p>
                 @if (question.type === 'short-answer') { <p>{{ feedback()[question.id] }}</p> }
@@ -80,15 +81,15 @@ import { selectExamQuestions, type AssessmentQuestion } from '../core/services/a
           }
 
           <div class="exam-controls">
-            <button mat-stroked-button type="button" [disabled]="currentIndex() === 0 || evaluating()" (click)="previousQuestion()"><mat-icon>arrow_back</mat-icon> Previous</button>
+            <button mat-stroked-button type="button" [disabled]="currentIndex() === 0 || evaluating()" (click)="previousQuestion()"><mat-icon>arrow_back</mat-icon> {{ 'exam.previous' | t }}</button>
             @if (!currentResult()) {
-              @if (question.type === 'short-answer') { <button mat-stroked-button type="button" [disabled]="evaluating()" (click)="skipAnswer()">Skip without grading</button> }
-              <button mat-flat-button type="button" [disabled]="!response().trim() || evaluating() || (question.type === 'short-answer' && (!hasConsent() || response().trim().length > 12000))" (click)="checkAnswer()">{{ evaluating() ? 'Checking...' : 'Check answer' }}</button>
+              @if (question.type === 'short-answer') { <button mat-stroked-button type="button" [disabled]="evaluating()" (click)="skipAnswer()">{{ 'exam.skipWithoutGrading' | t }}</button> }
+              <button mat-flat-button type="button" [disabled]="!response().trim() || evaluating() || (question.type === 'short-answer' && (!hasConsent() || response().trim().length > 12000))" (click)="checkAnswer()">{{ (evaluating() ? 'exam.checking' : 'exam.checkAnswer') | t }}</button>
             }
             @if (currentIndex() < questions().length - 1) {
-              <button mat-stroked-button type="button" class="exam-next" [disabled]="!currentResult()" (click)="nextQuestion()">Next <mat-icon>arrow_forward</mat-icon></button>
+              <button mat-stroked-button type="button" class="exam-next" [disabled]="!currentResult()" (click)="nextQuestion()">{{ 'exam.next' | t }} <mat-icon>arrow_forward</mat-icon></button>
             } @else {
-              <button mat-flat-button type="button" [disabled]="!currentResult()" (click)="finishExam()">Finish exam <mat-icon>check</mat-icon></button>
+              <button mat-flat-button type="button" [disabled]="!currentResult()" (click)="finishExam()">{{ 'exam.finish' | t }} <mat-icon>check</mat-icon></button>
             }
           </div>
         </section>
@@ -163,7 +164,7 @@ export class AssessmentExamPage implements OnInit {
   readonly correctCount = computed(() => Object.values(this.results()).filter(Boolean).length);
   readonly progressPercent = computed(() => this.questions().length ? ((this.currentIndex() + 1) / this.questions().length) * 100 : 0);
 
-  constructor(private readonly bank: AssessmentQuestionBankService, private readonly examiner: ExaminerAiService, private readonly auth: AuthStateService) {}
+  constructor(private readonly bank: AssessmentQuestionBankService, private readonly examiner: ExaminerAiService, private readonly auth: AuthStateService, private readonly locales: LocaleService = new LocaleService()) {}
 
   ngOnInit(): void { void this.startNewExam(); }
 
@@ -182,7 +183,7 @@ export class AssessmentExamPage implements OnInit {
       const bank = await this.bank.loadBank();
       this.questions.set(selectExamQuestions(bank.questions));
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Try again from the syllabus or COLREGs reference.');
+      this.error.set(error instanceof Error ? error.message : this.locales.translate('exam.tryAgainFromReferences'));
     } finally { this.loading.set(false); }
   }
 
@@ -211,7 +212,7 @@ export class AssessmentExamPage implements OnInit {
     this.consent.set(checked && accountId && this.auth.cloudAuth() === 'authenticated' ? { accountId, generation: this.auth.accountGeneration } : null);
     if (checked && !this.hasConsent()) {
       (event.target as HTMLInputElement).checked = false;
-      this.evaluationError.set('Sign in to an online account before consenting to evaluation.');
+      this.evaluationError.set(this.locales.translate('exam.onlineSignInRequired'));
     }
     else this.evaluationError.set('');
   }
@@ -226,7 +227,7 @@ export class AssessmentExamPage implements OnInit {
     }
     if (!this.hasConsent() || this.consent()?.generation !== this.auth.accountGeneration || this.evaluating()) return;
     if (answer.trim().length > 12000) {
-      this.evaluationError.set('Shorten your answer to 12,000 characters or fewer before checking.');
+      this.evaluationError.set(this.locales.translate('exam.answerTooLong'));
       return;
     }
     const consent = this.consent();
@@ -240,7 +241,7 @@ export class AssessmentExamPage implements OnInit {
       this.results.update((results) => ({ ...results, [question.id]: result.passed }));
     } catch (error) {
       const status = typeof error === 'object' && error !== null && 'status' in error ? error.status : null;
-      this.evaluationError.set(status === 422 ? 'The answer or question is invalid. Check your answer and try again.' : status === 429 ? 'Evaluation limit reached. Try again later, or skip without grading.' : 'Online evaluation is unavailable. Try again with consent, or skip without grading.');
+      this.evaluationError.set(status === 422 ? this.locales.translate('exam.invalidAnswer') : status === 429 ? this.locales.translate('exam.evaluationLimit') : this.locales.translate('exam.evaluationUnavailable'));
     } finally { this.evaluating.set(false); }
   }
 

@@ -11,35 +11,36 @@ import { RouterLink } from '@angular/router';
 import { api } from '../../api';
 import type { StudyModule } from '../domain-types';
 import { StudentMemoryService } from '../core/student-memory.service';
+import { LocaleService, TranslationPipe } from '../core/locale.service';
 
 @Component({
   standalone: true,
-  imports: [DatePipe, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, MatTableModule, MatTabsModule, RouterLink],
+  imports: [DatePipe, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, MatTableModule, MatTabsModule, RouterLink, TranslationPipe],
   template: `
     <main class="page-content">
-      <div class="page-heading"><div><span class="eyebrow">RYA Yachtmaster · ASA 105/106/108</span><h1>Syllabus map</h1><p>Six modules, visible thresholds, and local progress that travels offline.</p></div><div class="standard-toggle" role="group" aria-label="Training standard"><button [class.selected]="standard() === 'RYA'" (click)="standard.set('RYA')">RYA</button><button [class.selected]="standard() === 'ASA'" (click)="standard.set('ASA')">ASA</button></div></div>
-      <mat-card class="standard-note"><mat-icon>info</mat-icon>@if (standard() === 'RYA') { Admiralty chart references use LAT; apply the chart's stated variation and local notes. } @else { US chart references commonly use MLLW; check Inland Rules and local chart notes. }</mat-card>
-      @if (loading()) { <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>Loading syllabus modules</p></mat-card> }
-      @else if (error()) { <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>Unable to load modules</strong><p>{{ error() }}</p></div><button mat-stroked-button (click)="load()">Try again</button></mat-card> }
-      @else if (modules().length === 0) { <mat-card class="state-card empty-state"><mat-icon>menu_book</mat-icon><h2>No syllabus modules</h2><p>Bundled modules will be available again when local content loads.</p><button mat-flat-button (click)="load()">Reload syllabus</button></mat-card> }
+      <div class="page-heading"><div><span class="eyebrow">{{ 'syllabus.eyebrow' | t }}</span><h1>{{ 'syllabus.heading' | t }}</h1><p>{{ 'syllabus.description' | t }}</p></div><div class="standard-toggle" role="group" [attr.aria-label]="'syllabus.trainingStandard' | t"><button [class.selected]="standard() === 'RYA'" (click)="standard.set('RYA')">RYA</button><button [class.selected]="standard() === 'ASA'" (click)="standard.set('ASA')">ASA</button></div></div>
+      <mat-card class="standard-note"><mat-icon>info</mat-icon>{{ (standard() === 'RYA' ? 'syllabus.ryaNote' : 'syllabus.asaNote') | t }}</mat-card>
+      @if (loading()) { <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>{{ 'syllabus.loading' | t }}</p></mat-card> }
+      @else if (error()) { <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>{{ 'syllabus.unavailable' | t }}</strong><p>{{ error() }}</p></div><button mat-stroked-button (click)="load()">{{ 'syllabus.tryAgain' | t }}</button></mat-card> }
+      @else if (modules().length === 0) { <mat-card class="state-card empty-state"><mat-icon>menu_book</mat-icon><h2>{{ 'syllabus.noModules' | t }}</h2><p>{{ 'syllabus.noModulesDescription' | t }}</p><button mat-flat-button (click)="load()">{{ 'syllabus.reload' | t }}</button></mat-card> }
       @else {
         <mat-tab-group animationDuration="180ms" class="syllabus-tabs">
-          <mat-tab label="Modules"><div class="module-table-wrap"><table mat-table [dataSource]="modules()" class="module-table" aria-label="Syllabus module mastery and progression gates">
-            <ng-container matColumnDef="module"><th mat-header-cell *matHeaderCellDef>Module</th><td mat-cell *matCellDef="let module"><strong><a class="content-link" [routerLink]="['/learn', module.id]">{{ module.title }}</a></strong></td></ng-container>
-            <ng-container matColumnDef="topics"><th mat-header-cell *matHeaderCellDef>Topics</th><td mat-cell *matCellDef="let module">{{ module.completed }} / {{ module.topicCount }}</td></ng-container>
-            <ng-container matColumnDef="mastery"><th mat-header-cell *matHeaderCellDef>Mastery</th><td mat-cell *matCellDef="let module">{{ module.mastery }}%</td></ng-container>
-            <ng-container matColumnDef="threshold"><th mat-header-cell *matHeaderCellDef>Pass gate</th><td mat-cell *matCellDef="let module">{{ module.passThreshold }}%</td></ng-container>
-            <ng-container matColumnDef="progress"><th mat-header-cell *matHeaderCellDef>Mastery progress</th><td mat-cell *matCellDef="let module"><mat-progress-bar mode="determinate" [value]="module.mastery" [class.over-threshold]="module.mastery >= module.passThreshold"/></td></ng-container>
-            <ng-container matColumnDef="gate"><th mat-header-cell *matHeaderCellDef>Progression</th><td mat-cell *matCellDef="let module"><span class="gate-state" [class.passed]="module.mastery >= module.passThreshold">{{ module.mastery >= module.passThreshold ? 'Gate passed' : 'Locked: ' + (module.passThreshold - module.mastery) + ' pp short' }}</span></td></ng-container>
+          <mat-tab [label]="'syllabus.tab.modules' | t"><div class="module-table-wrap"><table mat-table [dataSource]="modules()" class="module-table" [attr.aria-label]="'syllabus.tableLabel' | t">
+            <ng-container matColumnDef="module"><th mat-header-cell *matHeaderCellDef>{{ 'syllabus.column.module' | t }}</th><td mat-cell *matCellDef="let module"><strong><a class="content-link" [routerLink]="['/learn', module.id]">{{ module.title }}</a></strong></td></ng-container>
+            <ng-container matColumnDef="topics"><th mat-header-cell *matHeaderCellDef>{{ 'syllabus.column.topics' | t }}</th><td mat-cell *matCellDef="let module">{{ module.completed }} / {{ module.topicCount }}</td></ng-container>
+            <ng-container matColumnDef="mastery"><th mat-header-cell *matHeaderCellDef>{{ 'syllabus.column.mastery' | t }}</th><td mat-cell *matCellDef="let module">{{ module.mastery }}%</td></ng-container>
+            <ng-container matColumnDef="threshold"><th mat-header-cell *matHeaderCellDef>{{ 'syllabus.column.passGate' | t }}</th><td mat-cell *matCellDef="let module">{{ module.passThreshold }}%</td></ng-container>
+            <ng-container matColumnDef="progress"><th mat-header-cell *matHeaderCellDef>{{ 'syllabus.column.masteryProgress' | t }}</th><td mat-cell *matCellDef="let module"><mat-progress-bar mode="determinate" [value]="module.mastery" [class.over-threshold]="module.mastery >= module.passThreshold"/></td></ng-container>
+            <ng-container matColumnDef="gate"><th mat-header-cell *matHeaderCellDef>{{ 'syllabus.column.progression' | t }}</th><td mat-cell *matCellDef="let module"><span class="gate-state" [class.passed]="module.mastery >= module.passThreshold">{{ (module.mastery >= module.passThreshold ? 'syllabus.gatePassed' : 'syllabus.gateLocked') | t: { points: module.passThreshold - module.mastery } }}</span></td></ng-container>
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr><tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
           </table></div></mat-tab>
-          <mat-tab label="Weak Spots">
+          <mat-tab [label]="'syllabus.tab.weakSpots' | t">
             @if (weakSpots().length === 0) {
-              <div class="weak-empty"><mat-card class="state-card empty-state"><mat-icon>task_alt</mat-icon><h2>No weak spots recorded</h2><p>Evaluation notes saved on this device will appear here.</p></mat-card></div>
+              <div class="weak-empty"><mat-card class="state-card empty-state"><mat-icon>task_alt</mat-icon><h2>{{ 'syllabus.noWeakSpots' | t }}</h2><p>{{ 'syllabus.weakSpotDescription' | t }}</p></mat-card></div>
             } @else {
               <div class="weak-spot-list">
                 @for (spot of weakSpots(); track spot.timestamp + spot.topicId) {
-                  <mat-card class="state-card"><mat-icon>flag</mat-icon><div><strong>{{ topicTitles()[spot.topicId] ?? spot.topicId }}</strong><p>{{ spot.tag }} · {{ spot.timestamp | date:'medium' }}</p></div><a mat-stroked-button routerLink="/examiner">Review</a></mat-card>
+                  <mat-card class="state-card"><mat-icon>flag</mat-icon><div><strong>{{ topicTitles()[spot.topicId] ?? spot.topicId }}</strong><p>{{ spot.tag }} · {{ spot.timestamp | date:'medium' }}</p></div><a mat-stroked-button routerLink="/examiner">{{ 'syllabus.review' | t }}</a></mat-card>
                 }
               </div>
             }
@@ -58,7 +59,7 @@ export class SyllabusPage implements OnInit {
   readonly error = signal('');
   readonly standard = signal<'RYA' | 'ASA'>('RYA');
 
-  constructor(private readonly memory: StudentMemoryService) {}
+  constructor(private readonly memory: StudentMemoryService, private readonly locales: LocaleService = new LocaleService()) {}
 
   ngOnInit(): void { void this.load(); }
   async load(): Promise<void> {
@@ -77,7 +78,7 @@ export class SyllabusPage implements OnInit {
       const topicIds = new Set(Object.keys(titles));
       this.weakSpots.set(progress.weakSpotLog.filter((spot) => topicIds.has(spot.topicId)));
     }
-    catch (error) { this.error.set(error instanceof Error ? error.message : 'Try again in a moment.'); }
+    catch (error) { this.error.set(error instanceof Error ? error.message : this.locales.translate('syllabus.tryAgainSoon')); }
     finally { this.loading.set(false); }
   }
 }

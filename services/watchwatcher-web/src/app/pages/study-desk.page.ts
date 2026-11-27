@@ -7,23 +7,24 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { api } from '../../api';
 import type { ColregsRule, StudySnapshot } from '../domain-types';
 import { selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise, type RuleExerciseSummary } from '../core/student-memory.service';
+import { LocaleService, TranslationPipe } from '../core/locale.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule],
+  imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, TranslationPipe],
   template: `
     <section class="hero-panel">
-      <span class="hero-kicker"><span class="status-dot"></span> Your COLREGs practice</span>
+      <span class="hero-kicker"><span class="status-dot"></span> {{ 'study.hero.kicker' | t }}</span>
       @if (nextRule(); as rule) {
         <h1>{{ rule.ruleNumber }} · {{ rule.title }}</h1>
-        <p>{{ completedRuleExercises() }} of {{ ruleCount() }} practice entries completed. {{ nextRuleSummary()?.completed ? 'Review this entry to strengthen recall.' : 'Continue with your next unfinished exercise.' }}</p>
+        <p>{{ 'study.hero.completed' | t: { completed: completedRuleExercises(), total: ruleCount() } }} {{ (nextRuleSummary()?.completed ? 'study.hero.reviewDescription' : 'study.hero.continueDescription') | t }}</p>
         <div class="hero-actions">
-          <a mat-flat-button [routerLink]="['/colregs', rule.id]"><mat-icon>arrow_forward</mat-icon> {{ nextRuleSummary()?.attempts ? 'Resume exercise' : 'Start exercise' }}</a>
-          <a mat-stroked-button routerLink="/examiner"><mat-icon>quiz</mat-icon> Practice workspace</a>
-          <a mat-stroked-button routerLink="/syllabus"><mat-icon>map</mat-icon> View syllabus</a>
+          <a mat-flat-button [routerLink]="['/colregs', rule.id]"><mat-icon>arrow_forward</mat-icon> {{ (nextRuleSummary()?.attempts ? 'study.resumeExercise' : 'study.startExercise') | t }}</a>
+          <a mat-stroked-button routerLink="/examiner"><mat-icon>quiz</mat-icon> {{ 'study.practiceWorkspace' | t }}</a>
+          <a mat-stroked-button routerLink="/syllabus"><mat-icon>map</mat-icon> {{ 'study.viewSyllabus' | t }}</a>
         </div>
       } @else {
-        <h1>Rule practice unavailable</h1><p>Bundled COLREGs practice could not be loaded.</p>
+        <h1>{{ 'study.unavailable' | t }}</h1><p>{{ 'study.bundledPracticeUnavailable' | t }}</p>
       }
       <svg class="hero-mesh" aria-hidden="true" viewBox="0 0 800 300" preserveAspectRatio="none">
         <defs>
@@ -36,33 +37,33 @@ import { selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise, ty
 
     <main class="page-content">
       <section aria-labelledby="mastery-heading">
-        <div class="section-heading"><h2 id="mastery-heading"><mat-icon>query_stats</mat-icon> Mastery at a glance</h2><span>{{ snapshot()?.topics?.length ?? 0 }} syllabus topics</span></div>
+        <div class="section-heading"><h2 id="mastery-heading"><mat-icon>query_stats</mat-icon> {{ 'study.masteryHeading' | t }}</h2><span>{{ 'study.syllabusTopics' | t: { count: snapshot()?.topics?.length ?? 0 } }}</span></div>
         @if (loading()) {
-          <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>Loading your latest study snapshot</p></mat-card>
+          <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>{{ 'study.loadingSnapshot' | t }}</p></mat-card>
         } @else if (error()) {
-          <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>Study data unavailable</strong><p>{{ error() }}</p></div><button mat-stroked-button (click)="load()">Try again</button></mat-card>
+          <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>{{ 'study.dataUnavailable' | t }}</strong><p>{{ error() }}</p></div><button mat-stroked-button (click)="load()">{{ 'study.tryAgain' | t }}</button></mat-card>
         } @else if (snapshot()?.topics?.length === 0) {
-          <mat-card class="state-card empty-state"><mat-icon>inbox</mat-icon><h3>No active topics yet</h3><p>Choose a module to start building your local study record.</p><a mat-flat-button routerLink="/syllabus">Open syllabus</a></mat-card>
+          <mat-card class="state-card empty-state"><mat-icon>inbox</mat-icon><h3>{{ 'study.noActiveTopics' | t }}</h3><p>{{ 'study.chooseModule' | t }}</p><a mat-flat-button routerLink="/syllabus">{{ 'study.openSyllabus' | t }}</a></mat-card>
         } @else if (snapshot(); as data) {
           <div class="metrics-grid">
-              <mat-card class="metric-card"><div class="metric-icon"><mat-icon>query_stats</mat-icon></div><span class="metric-label">Average mastery</span><strong>{{ data.averageMastery }}%</strong><span>Across the syllabus</span></mat-card>
-              <mat-card class="metric-card"><div class="metric-icon"><mat-icon>task_alt</mat-icon></div><span class="metric-label">At pass threshold</span><strong>{{ data.atThreshold }} of {{ data.topics.length }}</strong><span>Topics meeting their pass gate</span></mat-card>
-              <mat-card class="metric-card"><div class="metric-icon warning-icon"><mat-icon>flag</mat-icon></div><span class="metric-label">Weak spot records</span><strong>{{ data.weakSpots }}</strong><span>Stored with your local progress</span></mat-card>
+              <mat-card class="metric-card"><div class="metric-icon"><mat-icon>query_stats</mat-icon></div><span class="metric-label">{{ 'study.averageMastery' | t }}</span><strong>{{ data.averageMastery }}%</strong><span>{{ 'study.acrossSyllabus' | t }}</span></mat-card>
+              <mat-card class="metric-card"><div class="metric-icon"><mat-icon>task_alt</mat-icon></div><span class="metric-label">{{ 'study.atPassThreshold' | t }}</span><strong>{{ 'study.ofTopics' | t: { count: data.atThreshold, total: data.topics.length } }}</strong><span>{{ 'study.topicsMeetingGate' | t }}</span></mat-card>
+              <mat-card class="metric-card"><div class="metric-icon warning-icon"><mat-icon>flag</mat-icon></div><span class="metric-label">{{ 'study.weakSpotRecords' | t }}</span><strong>{{ data.weakSpots }}</strong><span>{{ 'study.storedLocal' | t }}</span></mat-card>
           </div>
-          <div class="offline-note"><p><mat-icon>offline_bolt</mat-icon> Offline ready: syllabus study, bundled COLREGs lookup, and structured choice practice stay available without a connection. Free-text checking requires online AI evaluation.</p><div><button mat-button (click)="syncProgress()" [disabled]="syncing()"><mat-icon>sync</mat-icon> {{ syncing() ? 'Syncing' : 'Sync progress' }}</button>@if (syncMessage()) { <small role="status">{{ syncMessage() }}</small> }</div></div>
-          <div class="section-heading topics-heading"><h2><mat-icon>menu_book</mat-icon> Study topics</h2><span>Mastery compared with pass threshold</span></div>
+          <div class="offline-note"><p><mat-icon>offline_bolt</mat-icon> {{ 'study.offlineNote' | t }}</p><div><button mat-button (click)="syncProgress()" [disabled]="syncing()"><mat-icon>sync</mat-icon> {{ (syncing() ? 'study.syncing' : 'study.syncProgress') | t }}</button>@if (syncMessage()) { <small role="status">{{ syncMessage() }}</small> }</div></div>
+          <div class="section-heading topics-heading"><h2><mat-icon>menu_book</mat-icon> {{ 'study.topicsHeading' | t }}</h2><span>{{ 'study.masteryCompared' | t }}</span></div>
           <div class="topic-list">
             @for (topic of data.topics; track topic.id) {
               <mat-card class="topic-row">
-                <div class="topic-title"><div><span class="topic-module">{{ topic.moduleTitle }}</span><h3><a class="content-link" [routerLink]="['/learn', topic.contentId ?? topic.id]">{{ topic.title }}</a></h3></div><span class="state-pill" [class.ready]="topic.state === 'ready'" [class.retry]="topic.state === 'retry'">{{ topic.state === 'ready' ? 'Ready to advance' : topic.state === 'retry' ? 'Retry required' : 'Remediation due' }}</span></div>
+                <div class="topic-title"><div><span class="topic-module">{{ topic.moduleTitle }}</span><h3><a class="content-link" [routerLink]="['/learn', topic.contentId ?? topic.id]">{{ topic.title }}</a></h3></div><span class="state-pill" [class.ready]="topic.state === 'ready'" [class.retry]="topic.state === 'retry'">{{ (topic.state === 'ready' ? 'study.state.ready' : topic.state === 'retry' ? 'study.state.retry' : 'study.state.remediation') | t }}</span></div>
                 <p>{{ topic.summary }}</p>
-                <div class="topic-progress"><mat-progress-bar mode="determinate" [value]="topic.mastery" [class.over-threshold]="topic.mastery >= topic.passThreshold"/><span>Mastery {{ topic.mastery }}% <i>·</i> Pass threshold {{ topic.passThreshold }}%</span></div>
+                <div class="topic-progress"><mat-progress-bar mode="determinate" [value]="topic.mastery" [class.over-threshold]="topic.mastery >= topic.passThreshold"/><span>{{ 'study.masteryPercent' | t: { mastery: topic.mastery } }} <i>·</i> {{ 'study.passThresholdPercent' | t: { threshold: topic.passThreshold } }}</span></div>
               </mat-card>
             }
           </div>
         }
       </section>
-      <footer class="page-footer"><span>WatchWatcher · RYA / ASA training</span><span>Local progress remains available offline</span></footer>
+      <footer class="page-footer"><span>{{ 'study.footerTraining' | t }}</span><span>{{ 'study.footerOffline' | t }}</span></footer>
     </main>
   `,
 })
@@ -77,7 +78,7 @@ export class StudyDeskPage implements OnInit {
   readonly syncing = signal(false);
   readonly syncMessage = signal('');
 
-  constructor(private readonly memory: StudentMemoryService) {}
+  constructor(private readonly memory: StudentMemoryService, private readonly locales: LocaleService = new LocaleService()) {}
 
   ngOnInit(): void { void this.load(); }
 
@@ -102,7 +103,7 @@ export class StudyDeskPage implements OnInit {
         current.weakSpots = progress.weakSpotLog.filter((entry) => topicIds.has(entry.topicId)).length;
       this.snapshot.set(current);
     }
-    catch (error) { this.error.set(error instanceof Error ? error.message : 'Try again in a moment.'); }
+    catch (error) { this.error.set(error instanceof Error ? error.message : this.locales.translate('study.tryAgainSoon')); }
     finally { this.loading.set(false); }
   }
 
@@ -111,9 +112,9 @@ export class StudyDeskPage implements OnInit {
     this.syncMessage.set('');
     try {
       const result = await this.memory.syncProgress();
-      this.syncMessage.set(`Synced ${new Date(result.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      this.syncMessage.set(this.locales.translate('study.syncedAt', { time: new Date(result.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }));
     } catch (error) {
-      this.syncMessage.set(error instanceof Error ? `${error.message} Local progress is unchanged.` : 'Sync failed. Local progress is unchanged.');
+      this.syncMessage.set(error instanceof Error ? this.locales.translate('study.syncError', { message: error.message }) : this.locales.translate('study.syncFailed'));
     } finally { this.syncing.set(false); }
   }
 }

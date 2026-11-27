@@ -2,6 +2,7 @@ import { AfterViewInit, Component, DestroyRef, ElementRef, inject, output, signa
 import { api } from '../../api';
 import type { GoogleAuthChallenge } from '../../api/types';
 import { AuthStateService } from '../core/auth-state.service';
+import { LocaleService, TranslationPipe } from '../core/locale.service';
 
 interface GoogleCredentialResponse {
   credential?: string;
@@ -35,12 +36,13 @@ export interface GoogleCredentialEvent {
 @Component({
   selector: 'ww-google-sign-in-button',
   standalone: true,
+  imports: [TranslationPipe],
   template: `
     <div class="google-sign-in">
       <div #buttonHost class="google-sign-in-button"></div>
-      @if (loading()) { <small role="status">Preparing secure Google sign-in…</small> }
+      @if (loading()) { <small role="status">{{ 'google.preparing' | t }}</small> }
       @if (error()) { <small class="inline-error" role="alert">{{ error() }}</small> }
-      @if (error()) { <button class="google-sign-in-retry" type="button" (click)="refresh()">Retry Google sign-in</button> }
+      @if (error()) { <button class="google-sign-in-retry" type="button" (click)="refresh()">{{ 'google.retry' | t }}</button> }
     </div>
   `,
   styles: [`
@@ -56,6 +58,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
   readonly loading = signal(true);
   readonly error = signal('');
   private readonly auth = inject(AuthStateService);
+  private readonly locales = inject(LocaleService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly buttonHost = viewChild.required<ElementRef<HTMLElement>>('buttonHost');
   private challenge: GoogleAuthChallenge | null = null;
@@ -77,7 +80,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
       const google = await this.loadGoogleIdentity();
       if (this.destroyRef.destroyed || preparation !== this.preparation) return;
       if (generation !== this.auth.accountGeneration) {
-        this.error.set('Account changed. Retry Google sign-in.');
+        this.error.set(this.locales.translate('google.accountChanged'));
         return;
       }
       this.challenge = challenge;
@@ -92,13 +95,13 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
           if (preparation !== this.preparation) return;
           if (generation !== this.auth.accountGeneration) {
             this.challenge = null;
-            this.error.set('Account changed. Retry Google sign-in.');
+            this.error.set(this.locales.translate('google.accountChanged'));
             return;
           }
           const currentChallenge = this.challenge;
           this.challenge = null;
           if (!response.credential || !currentChallenge) {
-            this.error.set('Google did not return a sign-in credential. Try again.');
+            this.error.set(this.locales.translate('google.missingCredential'));
             return;
           }
           this.signedIn.emit({ credential: response.credential, challengeId: currentChallenge.challengeId });
@@ -112,7 +115,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
         width: Math.max(200, Math.min(320, host.clientWidth || 320)),
       });
     } catch (error) {
-      if (preparation === this.preparation && !this.destroyRef.destroyed) this.error.set(error instanceof Error ? error.message : 'Google sign-in is unavailable.');
+      if (preparation === this.preparation && !this.destroyRef.destroyed) this.error.set(error instanceof Error ? error.message : this.locales.translate('google.unavailable'));
     } finally { if (preparation === this.preparation && !this.destroyRef.destroyed) this.loading.set(false); }
   }
 
@@ -122,7 +125,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
       const existing = document.getElementById('google-identity-services') as HTMLScriptElement | null;
       const script = existing ?? document.createElement('script');
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Google sign-in could not be loaded.'));
+      script.onerror = () => reject(new Error(this.locales.translate('google.scriptLoadFailed')));
       if (!existing) {
         script.id = 'google-identity-services';
         script.src = 'https://accounts.google.com/gsi/client';
@@ -131,7 +134,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
         document.head.appendChild(script);
       }
     });
-    if (!window.google) throw new Error('Google sign-in did not initialize.');
+    if (!window.google) throw new Error(this.locales.translate('google.initializationFailed'));
     return window.google;
   }
 }
