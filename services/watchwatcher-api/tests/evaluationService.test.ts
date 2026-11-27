@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { evaluateStructuredRule19 } from '../../shared/evaluation/offline-evaluator';
+import type { OnlineEvaluationRequest } from '../../shared/types/entities';
 import type { AppConfig } from '../src/services/config';
 import { DeterministicEvaluationService, GeminiEvaluationService } from '../src/services/evaluationService';
 
@@ -49,20 +50,33 @@ describe('GeminiEvaluationService', () => {
     environment: 'Test', databaseUrl: undefined, jwtSecret: undefined, jwtIssuer: 'watchwatcher-api', jwtAudience: 'watchwatcher-app',
     googleClientId: undefined, geminiApiKey: 'test-key', azureStorageAccount: undefined, azuriteConnectionString: undefined,
   };
-  const input = { topicId: 'rule-5', context: 'Lookout', answer: 'Keep a proper lookout.' };
+  const input = { topicId: 'rule-5', context: 'Lookout', answer: 'Keep a proper lookout.', onlineConsent: true } as const;
 
   afterEach(() => vi.unstubAllGlobals());
 
   it('submits the evaluation request and validates a structured response', async () => {
-    const value = { score: 0.9, feedback: 'Correct', misconceptionTag: null, followUpDrill: 'Review lookout.' };
+    const value = { score: 0.9, feedback: 'Correct', misconceptionTag: null, followUpDrill: 'Review lookout.', criticalFailure: false, criticalFailureReason: null };
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }] }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     const service = new GeminiEvaluationService(config);
-    expect(await service.evaluate(input)).toEqual({ ...value, source: 'online' });
+    const inputWithExtraData = { ...input, accountId: 'synthetic-account', progress: 'synthetic-progress' };
+    expect(await service.evaluate(inputWithExtraData)).toEqual({ ...value, source: 'online' });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
     expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('x-goog-api-key')).toBe('test-key');
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect(JSON.parse(body.contents[0].parts[0].text)).toEqual({ topicId: input.topicId, context: input.context, answer: input.answer });
+    expect(body.generationConfig.responseSchema.required).toContain('criticalFailure');
     expect(await service.healthCheck()).toBe(true);
+  });
+
+  it('does not contact the provider without explicit consent', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const service = new GeminiEvaluationService(config);
+    await expect(service.evaluate({ ...input, onlineConsent: false } as unknown as OnlineEvaluationRequest)).rejects.toThrow('explicit consent');
+    await expect(service.evaluate({ topicId: input.topicId, context: input.context, answer: input.answer } as OnlineEvaluationRequest)).rejects.toThrow('explicit consent');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('reports missing configuration and unsuccessful provider responses', async () => {
@@ -81,5 +95,23 @@ describe('GeminiEvaluationService', () => {
     const service = new GeminiEvaluationService(config);
     await expect(service.evaluate(input)).rejects.toThrow('no structured evaluation');
     await expect(service.evaluate(input)).rejects.toThrow('invalid evaluation');
+  });
+
+  it.each([
+    { criticalFailure: null, criticalFailureReason: null },
+    { criticalFailure: undefined, criticalFailureReason: null },
+    { criticalFailure: 'false', criticalFailureReason: null },
+    { criticalFailure: true, criticalFailureReason: null },
+    { criticalFailure: false, criticalFailureReason: 'Critical hazard' },
+  ])('rejects uncertain, missing, malformed or contradictory safety fields: %j', async (safety) => {
+    const value = { score: 0.95, feedback: 'Review', misconceptionTag: null, followUpDrill: 'Review', ...safety };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }] }))));
+    await expect(new GeminiEvaluationService(config).evaluate(input)).rejects.toThrow('invalid evaluation');
+  });
+
+  it('preserves a high-score critical failure for downstream grading', async () => {
+    const value = { score: 0.95, feedback: 'Review', misconceptionTag: 'unsafe-action', followUpDrill: 'Review', criticalFailure: true, criticalFailureReason: 'Unsafe alteration.' };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }] }))));
+    await expect(new GeminiEvaluationService(config).evaluate(input)).resolves.toMatchObject(value);
   });
 });

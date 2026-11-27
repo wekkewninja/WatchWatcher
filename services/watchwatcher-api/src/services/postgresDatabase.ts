@@ -2,13 +2,63 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import type { PublicAccount, ProgressSnapshot, StoredProgress } from '../../../shared/types/entities';
 import type { AppConfig } from './config';
-import { ConflictError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
+import { ConflictError, ReauthenticationError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
 import type { IDatabaseService } from './interfaces/IDatabaseService';
+import { deletionReceiptHash } from './deletionReceipt';
 
 export class PostgresDatabaseService implements IDatabaseService {
   private pool: Pool | null = null;
 
   constructor(private readonly config: AppConfig) {}
+
+  async createSession(id: string, accountId: string, expiresAt: Date): Promise<void> {
+    await this.getPool().query('INSERT INTO sessions (id, account_id, expires_at) VALUES ($1, $2, $3)', [id, accountId, expiresAt]);
+  }
+
+  async findSessionAccount(id: string, accountId: string): Promise<{ id: string; name: string; email: string; passwordHash: string | null } | null> {
+    const result = await this.getPool().query<{ id: string; name: string; email: string; password_hash: string | null }>(
+      'SELECT users.id, users.name, users.email, users.password_hash FROM sessions JOIN users ON users.id = sessions.account_id WHERE sessions.id = $1 AND sessions.account_id = $2 AND sessions.expires_at > clock_timestamp()',
+      [id, accountId],
+    );
+    const account = result.rows[0];
+    return account ? { id: account.id, name: account.name, email: account.email, passwordHash: account.password_hash } : null;
+  }
+
+  async revokeSession(id: string, accountId: string): Promise<void> {
+    const client = await this.getPool().connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+      await client.query('DELETE FROM sessions WHERE id = $1 AND account_id = $2', [id, accountId]);
+      await client.query('DELETE FROM deletion_receipts WHERE session_hash = $1', [deletionReceiptHash(accountId, id)]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async hasDeletionReceipt(sessionHash: string): Promise<boolean> {
+    const result = await this.getPool().query('SELECT 1 FROM deletion_receipts WHERE session_hash = $1 AND expires_at > clock_timestamp()', [sessionHash]);
+    return result.rowCount === 1;
+  }
+
+  async consumeIdentifierLimit(keyHash: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean; retryAfter: number }> {
+    const result = await this.getPool().query<{ allowed: boolean; retry_after: number }>(
+      `INSERT INTO identifier_rate_limits (key_hash, attempt_count, expires_at)
+       VALUES ($1, 1, clock_timestamp() + $3 * interval '1 second')
+       ON CONFLICT (key_hash) DO UPDATE SET (attempt_count, expires_at) = (
+         SELECT CASE WHEN identifier_rate_limits.expires_at <= sampled_at THEN 1
+                  ELSE LEAST(identifier_rate_limits.attempt_count + 1, $2 + 1) END,
+                CASE WHEN identifier_rate_limits.expires_at <= sampled_at
+                  THEN sampled_at + $3 * interval '1 second' ELSE identifier_rate_limits.expires_at END
+         FROM (SELECT clock_timestamp() AS sampled_at OFFSET 0) AS timestamp_sample
+       )
+       RETURNING attempt_count <= $2 AS allowed,
+         GREATEST(1, CEIL(EXTRACT(EPOCH FROM (expires_at - clock_timestamp()))))::integer AS retry_after`,
+      [keyHash, limit, windowSeconds],
+    );
+    return { allowed: result.rows[0].allowed, retryAfter: result.rows[0].retry_after };
+  }
 
   async createAccount(input: { id: string; name: string; email: string; passwordHash: string }): Promise<PublicAccount> {
     try {
@@ -21,6 +71,15 @@ export class PostgresDatabaseService implements IDatabaseService {
       if (isUniqueViolation(error)) throw new ConflictError('An account already exists for this email.');
       throw error;
     }
+  }
+
+  async findAccountById(id: string): Promise<{ id: string; name: string; email: string; passwordHash: string | null } | null> {
+    const result = await this.getPool().query<{ id: string; name: string; email: string; password_hash: string | null }>(
+      'SELECT id, name, email, password_hash FROM users WHERE id = $1 LIMIT 1',
+      [id],
+    );
+    const account = result.rows[0];
+    return account ? { id: account.id, name: account.name, email: account.email, passwordHash: account.password_hash } : null;
   }
 
   async findAccountByEmail(email: string): Promise<{ id: string; name: string; email: string; passwordHash: string | null } | null> {
@@ -114,6 +173,41 @@ export class PostgresDatabaseService implements IDatabaseService {
     } finally { client.release(); }
   }
 
+  async deleteAccount(accountId: string, verification: { type: 'password'; passwordHash: string } | { type: 'google'; subject: string; challengeId: string; nonceHash: string }, sessionId: string, tokenExpiresAt: Date): Promise<void> {
+    const client = await this.getPool().connect();
+    try {
+      await client.query('BEGIN');
+      const account = await client.query<{ password_hash: string | null }>(
+        'SELECT users.password_hash FROM users JOIN sessions ON sessions.account_id = users.id WHERE users.id = $1 AND sessions.id = $2 AND sessions.expires_at > clock_timestamp() FOR UPDATE OF users, sessions',
+        [accountId, sessionId],
+      );
+      if (account.rowCount === 0) throw new UnauthorizedError('Session is invalid or expired.');
+      if (verification.type === 'password') {
+        if (account.rows[0].password_hash !== verification.passwordHash) throw new ReauthenticationError();
+      } else {
+        const identity = await client.query(
+          "SELECT 1 FROM account_identities WHERE account_id = $1 AND provider = 'google' AND provider_subject = $2",
+          [accountId, verification.subject],
+        );
+        if (identity.rowCount !== 1) throw new ReauthenticationError();
+        const challenge = await client.query(
+          'DELETE FROM google_auth_challenges WHERE id = $1 AND nonce_hash = $2 AND expires_at > clock_timestamp() RETURNING id',
+          [verification.challengeId, verification.nonceHash],
+        );
+        if (challenge.rowCount !== 1) throw new ReauthenticationError();
+      }
+      await client.query(
+        'INSERT INTO deletion_receipts (session_hash, expires_at) SELECT $1, LEAST(expires_at, $2) FROM sessions WHERE id = $3 AND account_id = $4',
+        [deletionReceiptHash(accountId, sessionId), tokenExpiresAt, sessionId, accountId],
+      );
+      await client.query('DELETE FROM users WHERE id = $1', [accountId]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  }
+
   async getProgress(accountId: string): Promise<StoredProgress | null> {
     const result = await this.getPool().query<{
       topic_mastery: ProgressSnapshot['topicMastery'];
@@ -141,17 +235,13 @@ export class PostgresDatabaseService implements IDatabaseService {
 
   async saveProgress(accountId: string, snapshot: ProgressSnapshot, expectedRevision: number): Promise<{ syncedAt: string; revision: number }> {
     const result = await this.getPool().query<{ revision: number; synced_at: Date }>(
-      `INSERT INTO progress_snapshots (account_id, topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, revision, synced_at)
-       SELECT $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, 1, NOW() WHERE $6 = 0
-       ON CONFLICT (account_id) DO UPDATE SET
-         topic_mastery = EXCLUDED.topic_mastery,
-         weak_spot_log = EXCLUDED.weak_spot_log,
-         drill_queue = EXCLUDED.drill_queue,
-         rule_exercise_attempts = EXCLUDED.rule_exercise_attempts,
-         revision = progress_snapshots.revision + 1,
-         synced_at = NOW()
-       WHERE progress_snapshots.revision = $6
-       RETURNING revision, synced_at`,
+      expectedRevision === 0
+        ? `INSERT INTO progress_snapshots (account_id, topic_mastery, weak_spot_log, drill_queue, rule_exercise_attempts, revision, synced_at)
+           SELECT $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, 1, NOW() WHERE $6 = 0
+           ON CONFLICT (account_id) DO NOTHING RETURNING revision, synced_at`
+        : `UPDATE progress_snapshots SET topic_mastery = $2::jsonb, weak_spot_log = $3::jsonb,
+           drill_queue = $4::jsonb, rule_exercise_attempts = $5::jsonb, revision = revision + 1, synced_at = NOW()
+           WHERE account_id = $1 AND revision = $6 RETURNING revision, synced_at`,
       [accountId, JSON.stringify(snapshot.topicMastery), JSON.stringify(snapshot.weakSpotLog), JSON.stringify(snapshot.drillQueue), JSON.stringify(snapshot.ruleExerciseAttempts), expectedRevision],
     );
     const updated = result.rows[0];

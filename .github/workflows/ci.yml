@@ -12,6 +12,20 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: migration_test
+          POSTGRES_PASSWORD: migration_test
+          POSTGRES_DB: migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U migration_test -d migration_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +39,14 @@ jobs:
           npm install --no-save --package-lock=false --workspace services/watchwatcher-web "sass-embedded-linux-x64@${sass_version}"
       - run: npm run build
       - run: npm run test:coverage-gate
+      - name: Test migrations and rollback
+        run: npm run test:migrations
+        env:
+          MIGRATION_TEST_DATABASE_URL: postgresql://migration_test:migration_test@localhost:5432/migration_test
+      - name: Test PostgreSQL progress isolation
+        run: npm test --workspace services/watchwatcher-api -- tests/postgresDatabase.integration.test.ts
+        env:
+          MIGRATION_TEST_DATABASE_URL: postgresql://migration_test:migration_test@localhost:5432/migration_test
       - run: npm run test:coverage
       - run: npm run test:icons
       - name: Audit production dependencies

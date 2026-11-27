@@ -1,5 +1,6 @@
 {
   "topicId": "colregs-rule-5",
   "context": "A vessel is navigating in restricted visibility near other vessels.",
-  "answer": "Maintain a proper lookout by sight, hearing, and all available means appropriate to the conditions."
+  "answer": "Maintain a proper lookout by sight, hearing, and all available means appropriate to the conditions.",
+  "onlineConsent": true
 }

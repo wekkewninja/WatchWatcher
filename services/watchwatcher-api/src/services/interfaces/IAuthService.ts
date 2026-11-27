@@ -1,4 +1,5 @@
 import type { PublicAccount } from '../../../../shared/types/entities';
+import type { DeleteAccountRequest } from '../../../../shared/types/api';
 
 export interface AuthSession {
   accountId: string;
@@ -28,4 +29,7 @@ export interface IAuthService {
   createGoogleChallenge(): Promise<GoogleAuthChallenge>;
   loginWithGoogle(input: { credential: string; challengeId: string; linkExisting?: GoogleAccountLinkRequest }): Promise<GoogleSignInResult>;
   authenticate(authorization: string | undefined): Promise<PublicAccount>;
+  consumeEvaluationLimit(accountId: string): Promise<void>;
+  logout(authorization: string | undefined): Promise<void>;
+  deleteAccount(authorization: string | undefined, input: DeleteAccountRequest): Promise<void>;
 }

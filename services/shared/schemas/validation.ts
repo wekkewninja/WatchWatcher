@@ -1,11 +1,14 @@
 import { z } from 'zod';
+import { hasMinimumPasswordCharacters, isPasswordWithinLimits, PASSWORD_LIMIT_MESSAGE } from './password';
 
 export const emailSchema = z.string().trim().email().max(254);
-export const credentialsSchema = z.object({ email: emailSchema, password: z.string().min(8).max(128) }).strict();
+const passwordSchema = z.string().refine(isPasswordWithinLimits, PASSWORD_LIMIT_MESSAGE);
+const passwordMinimum = (minimum: number) => passwordSchema.refine((password) => hasMinimumPasswordCharacters(password, minimum), `Password must contain at least ${minimum} Unicode code points.`);
+export const credentialsSchema = z.object({ email: emailSchema, password: passwordMinimum(8) }).strict();
 export const registerSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: emailSchema,
-  password: z.string().min(10).max(128),
+  password: passwordMinimum(10),
 }).strict();
 export const sessionSchema = credentialsSchema;
 export const googleSignInSchema = z.object({
@@ -13,9 +16,17 @@ export const googleSignInSchema = z.object({
   credential: z.string().min(100).max(10000),
   linkExisting: z.object({
     confirmed: z.literal(true),
-    password: z.string().min(8).max(128),
+    password: passwordMinimum(8),
   }).strict().optional(),
 }).strict();
+
+export const deleteAccountSchema = z.union([z.object({
+  confirmation: z.literal('DELETE'),
+  reauthentication: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('password'), password: passwordSchema.pipe(z.string().min(1)) }).strict(),
+    z.object({ type: z.literal('google'), credential: z.string().min(100).max(10000), challengeId: z.string().uuid() }).strict(),
+  ]),
+}).strict(), z.object({ confirmation: z.literal('DELETE'), receiptOnly: z.literal(true) }).strict()]);
 
 export const progressSnapshotSchema = z.object({
   topicMastery: z.record(z.string().min(1).max(120), z.number().min(0).max(100)),
@@ -42,6 +53,7 @@ export const evaluateAnswerSchema = z.object({
   topicId: z.string().min(1).max(120),
   context: z.string().min(1).max(10000),
   answer: z.string().trim().min(1).max(12000),
+  onlineConsent: z.literal(true),
 }).strict();
 
 export type CredentialsInput = z.infer<typeof credentialsSchema>;

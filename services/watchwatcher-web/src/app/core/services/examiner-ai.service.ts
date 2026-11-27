@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { api } from '../../../api';
-import type { EvaluationRequest, EvaluationResult } from '../../domain-types';
+import type { EvaluationResult } from '../../domain-types';
+import type { OnlineEvaluationRequest } from '@watchwatcher/shared/types';
 import type { StructuredRule19Answer } from '../../../../../shared/evaluation/offline-evaluator';
 import { OfflineExaminerService } from './offline-examiner.service';
 
@@ -12,15 +13,20 @@ export class ExaminerAiService {
     return this.offline.evaluateStructuredRule19(input);
   }
 
-  evaluateFreeText(input: EvaluationRequest): Promise<EvaluationResult> {
+  evaluateFreeText(input: OnlineEvaluationRequest): Promise<EvaluationResult> {
+    if (input.onlineConsent !== true) throw new Error('Online evaluation requires explicit consent.');
+    if (input.answer.trim().length > 12000) throw new Error('Shorten your answer to 12,000 characters or fewer.');
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new Error('Free-text grading requires online AI verification. Use the structured offline answer instead.');
+      throw new Error('Free-text grading requires online AI evaluation. Use the structured offline answer instead.');
     }
     return api.evaluateAnswer(input).then((result) => {
       if (result.source !== 'online') {
-        throw new Error('Online AI verification is unavailable. Use the structured offline answer instead.');
+        throw new Error('Online AI evaluation is unavailable. Use the structured offline answer instead.');
       }
-      return { ...result, passed: result.score >= this.threshold(input.topicId) };
+      if (typeof result.criticalFailure !== 'boolean' || (result.criticalFailure ? typeof result.criticalFailureReason !== 'string' || !result.criticalFailureReason.trim() : result.criticalFailureReason !== null)) {
+        throw new Error('Online AI evaluation is unavailable. Use the structured offline answer instead.');
+      }
+      return { ...result, passed: !result.criticalFailure && result.score >= this.threshold(input.topicId) };
     });
   }
 

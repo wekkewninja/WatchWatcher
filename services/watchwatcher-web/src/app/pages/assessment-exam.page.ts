@@ -4,20 +4,23 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { RouterLink } from '@angular/router';
+import { AuthStateService } from '../core/auth-state.service';
+import { ExaminerAiService } from '../core/services/examiner-ai.service';
 import { AssessmentQuestionBankService } from '../core/services/assessment-question-bank.service';
-import { gradeShortAnswer, selectExamQuestions, type AssessmentQuestion } from '../core/services/assessment-question-bank';
+import { selectExamQuestions, type AssessmentQuestion } from '../core/services/assessment-question-bank';
 
 @Component({
   standalone: true,
-  imports: [TitleCasePipe, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule],
+  imports: [TitleCasePipe, RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule],
   template: `
     <main class="page-content assessment-exam-page">
       <header class="page-heading">
         <div><span class="eyebrow">Yachtmaster · randomized assessment</span><h1>Exam</h1><p>Every Critical question is included; five additional Major or Minor questions are sampled for each attempt.</p></div>
-        <button mat-stroked-button type="button" (click)="startNewExam()"><mat-icon>shuffle</mat-icon> New exam</button>
+        <button mat-stroked-button type="button" [disabled]="evaluating()" (click)="startNewExam()"><mat-icon>shuffle</mat-icon> New exam</button>
       </header>
       @if (loading()) {
-        <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>Building your offline exam</p></mat-card>
+        <mat-card class="state-card"><mat-progress-bar mode="indeterminate"/><p>Building your exam</p></mat-card>
       } @else if (error()) {
         <mat-card class="state-card error-state"><mat-icon>error_outline</mat-icon><div><strong>Exam unavailable</strong><p>{{ error() }}</p></div><button mat-stroked-button type="button" (click)="startNewExam()">Try again</button></mat-card>
       } @else if (finished()) {
@@ -54,21 +57,34 @@ import { gradeShortAnswer, selectExamQuestions, type AssessmentQuestion } from '
               }
             </fieldset>
           } @else {
-            <label class="exam-short-answer"><span>Your answer</span><textarea rows="5" [value]="response()" (input)="setResponseFromEvent($event)" placeholder="Write your response"></textarea></label>
+            <label class="exam-short-answer"><span>Your answer</span><textarea rows="5" [disabled]="evaluating()" [value]="response()" (input)="setResponseFromEvent($event)" placeholder="Write your response"></textarea></label>
+            @if (!currentResult()) {
+              <p>Online checking sends the topic, question, reference, model answer, explanation, and your answer to Google Gemini for evaluation.</p>
+              <label><input type="checkbox" [checked]="hasConsent()" (change)="setConsent($event)"> I agree to send this answer to Google for online evaluation.</label>
+              <p>Free-text checking requires an online account. <a routerLink="/examiner">Practice structured exercises offline</a>, or skip this answer without grading.</p>
+              <p>AI judgments can be wrong and are not authoritative navigation guidance.</p>
+              @if (response().trim().length > 12000) { <p role="alert">Shorten your answer to 12,000 characters or fewer before checking.</p> }
+              @if (evaluationError()) { <p role="alert">{{ evaluationError() }}</p> }
+            }
           }
 
           @if (currentResult(); as result) {
             <div class="exam-feedback" [class.correct]="result.correct" role="status">
-              <strong>{{ result.correct ? 'Correct' : 'Review this answer' }}</strong>
-              <p>{{ question.explanation }}</p>
-              @if (question.type === 'short-answer' && !result.correct) { <p><strong>Expected concepts:</strong> {{ question.expectedKeywords.join(' · ') }}</p> }
-              @if (!result.correct) { <p>{{ question.remediation }}</p> }
+              <strong>{{ result.correct === null ? 'Not graded' : result.correct ? 'Correct' : 'Review this answer' }}</strong>
+              @if (result.correct !== null) {
+                <p>{{ question.explanation }}</p>
+                @if (question.type === 'short-answer') { <p>{{ feedback()[question.id] }}</p> }
+                @if (!result.correct) { <p>{{ question.remediation }}</p> }
+              }
             </div>
           }
 
           <div class="exam-controls">
-            <button mat-stroked-button type="button" [disabled]="currentIndex() === 0" (click)="previousQuestion()"><mat-icon>arrow_back</mat-icon> Previous</button>
-            @if (!currentResult()) { <button mat-flat-button type="button" [disabled]="!response().trim()" (click)="checkAnswer()">Check answer</button> }
+            <button mat-stroked-button type="button" [disabled]="currentIndex() === 0 || evaluating()" (click)="previousQuestion()"><mat-icon>arrow_back</mat-icon> Previous</button>
+            @if (!currentResult()) {
+              @if (question.type === 'short-answer') { <button mat-stroked-button type="button" [disabled]="evaluating()" (click)="skipAnswer()">Skip without grading</button> }
+              <button mat-flat-button type="button" [disabled]="!response().trim() || evaluating() || (question.type === 'short-answer' && (!hasConsent() || response().trim().length > 12000))" (click)="checkAnswer()">{{ evaluating() ? 'Checking...' : 'Check answer' }}</button>
+            }
             @if (currentIndex() < questions().length - 1) {
               <button mat-stroked-button type="button" class="exam-next" [disabled]="!currentResult()" (click)="nextQuestion()">Next <mat-icon>arrow_forward</mat-icon></button>
             } @else {
@@ -120,7 +136,15 @@ export class AssessmentExamPage implements OnInit {
   readonly questions = signal<AssessmentQuestion[]>([]);
   readonly currentIndex = signal(0);
   readonly answers = signal<Record<string, string>>({});
-  readonly results = signal<Record<string, boolean>>({});
+  readonly results = signal<Record<string, boolean | null>>({});
+  readonly feedback = signal<Record<string, string>>({});
+  readonly evaluating = signal(false);
+  readonly evaluationError = signal('');
+  private readonly consent = signal<{ accountId: string; generation: number } | null>(null);
+  readonly hasConsent = computed(() => {
+    const consent = this.consent();
+    return !!consent && this.auth.cloudAuth() === 'authenticated' && this.auth.user()?.id === consent.accountId && this.auth.accountGeneration === consent.generation;
+  });
   readonly started = signal(false);
   readonly finished = signal(false);
   readonly currentQuestion = computed(() => this.questions()[this.currentIndex()] ?? null);
@@ -135,11 +159,11 @@ export class AssessmentExamPage implements OnInit {
   });
   readonly criticalCount = computed(() => this.questions().filter((question) => question.priority === 'critical').length);
   readonly supplementalCount = computed(() => this.questions().filter((question) => question.priority !== 'critical').length);
-  readonly checkedCount = computed(() => Object.keys(this.results()).length);
+  readonly checkedCount = computed(() => Object.values(this.results()).filter((result) => result !== null).length);
   readonly correctCount = computed(() => Object.values(this.results()).filter(Boolean).length);
   readonly progressPercent = computed(() => this.questions().length ? ((this.currentIndex() + 1) / this.questions().length) * 100 : 0);
 
-  constructor(private readonly bank: AssessmentQuestionBankService) {}
+  constructor(private readonly bank: AssessmentQuestionBankService, private readonly examiner: ExaminerAiService, private readonly auth: AuthStateService) {}
 
   ngOnInit(): void { void this.startNewExam(); }
 
@@ -151,6 +175,9 @@ export class AssessmentExamPage implements OnInit {
     this.currentIndex.set(0);
     this.answers.set({});
     this.results.set({});
+    this.feedback.set({});
+    this.consent.set(null);
+    this.evaluationError.set('');
     try {
       const bank = await this.bank.loadBank();
       this.questions.set(selectExamQuestions(bank.questions));
@@ -162,6 +189,8 @@ export class AssessmentExamPage implements OnInit {
   beginExam(): void { this.started.set(true); }
 
   setResponse(value: string): void {
+    this.consent.set(null);
+    this.evaluationError.set('');
     const question = this.currentQuestion();
     if (!question) return;
     this.answers.update((answers) => ({ ...answers, [question.id]: value }));
@@ -176,18 +205,53 @@ export class AssessmentExamPage implements OnInit {
     this.setResponse((event.target as HTMLTextAreaElement).value);
   }
 
-  checkAnswer(): void {
+  setConsent(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const accountId = this.auth.user()?.id;
+    this.consent.set(checked && accountId && this.auth.cloudAuth() === 'authenticated' ? { accountId, generation: this.auth.accountGeneration } : null);
+    if (checked && !this.hasConsent()) {
+      (event.target as HTMLInputElement).checked = false;
+      this.evaluationError.set('Sign in to an online account before consenting to evaluation.');
+    }
+    else this.evaluationError.set('');
+  }
+
+  async checkAnswer(): Promise<void> {
     const question = this.currentQuestion();
     if (!question) return;
     const answer = this.response();
-    const correct = question.type === 'choice'
-      ? answer === question.answer
-      : gradeShortAnswer(question, answer).correct;
-    this.results.update((results) => ({ ...results, [question.id]: correct }));
+    if (question.type === 'choice') {
+      this.results.update((results) => ({ ...results, [question.id]: answer === question.answer }));
+      return;
+    }
+    if (!this.hasConsent() || this.consent()?.generation !== this.auth.accountGeneration || this.evaluating()) return;
+    if (answer.trim().length > 12000) {
+      this.evaluationError.set('Shorten your answer to 12,000 characters or fewer before checking.');
+      return;
+    }
+    const consent = this.consent();
+    this.consent.set(null);
+    this.evaluationError.set('');
+    this.evaluating.set(true);
+    try {
+      const result = await this.examiner.evaluateFreeText({ topicId: question.sectionId, context: `Question: ${question.prompt}\nReference: ${question.sourceRef}\nModel answer: ${question.modelAnswer}\nExplanation: ${question.explanation}`, answer, onlineConsent: true });
+      if (this.auth.accountGeneration !== consent?.generation || this.auth.user()?.id !== consent.accountId || this.auth.cloudAuth() !== 'authenticated' || this.currentQuestion()?.id !== question.id || this.response() !== answer) return;
+      this.feedback.update((feedback) => ({ ...feedback, [question.id]: result.criticalFailureReason ? `${result.feedback} ${result.criticalFailureReason}` : result.feedback }));
+      this.results.update((results) => ({ ...results, [question.id]: result.passed }));
+    } catch (error) {
+      const status = typeof error === 'object' && error !== null && 'status' in error ? error.status : null;
+      this.evaluationError.set(status === 422 ? 'The answer or question is invalid. Check your answer and try again.' : status === 429 ? 'Evaluation limit reached. Try again later, or skip without grading.' : 'Online evaluation is unavailable. Try again with consent, or skip without grading.');
+    } finally { this.evaluating.set(false); }
   }
 
-  previousQuestion(): void { this.currentIndex.update((index) => Math.max(0, index - 1)); }
-  nextQuestion(): void { this.currentIndex.update((index) => Math.min(this.questions().length - 1, index + 1)); }
+  skipAnswer(): void {
+    const question = this.currentQuestion();
+    if (question?.type === 'short-answer' && !this.evaluating()) this.results.update((results) => ({ ...results, [question.id]: null }));
+    this.consent.set(null);
+  }
+
+  previousQuestion(): void { this.consent.set(null); this.evaluationError.set(''); this.currentIndex.update((index) => Math.max(0, index - 1)); }
+  nextQuestion(): void { this.consent.set(null); this.evaluationError.set(''); this.currentIndex.update((index) => Math.min(this.questions().length - 1, index + 1)); }
   finishExam(): void { this.finished.set(true); }
   reviewExam(): void { this.finished.set(false); this.started.set(true); this.currentIndex.set(0); }
 }

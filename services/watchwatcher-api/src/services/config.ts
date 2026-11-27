@@ -2,6 +2,7 @@ export interface AppConfig {
   environment: string;
   databaseUrl: string | undefined;
   jwtSecret: string | undefined;
+  rateLimitSecret?: string;
   jwtIssuer: string;
   jwtAudience: string;
   googleClientId: string | undefined;
@@ -21,6 +22,7 @@ export function loadConfig(): AppConfig {
     environment: process.env.AZURE_FUNCTIONS_ENVIRONMENT ?? 'Production',
     databaseUrl: process.env.DATABASE_URL,
     jwtSecret: process.env.JWT_SECRET,
+    rateLimitSecret: process.env.RATE_LIMIT_SECRET,
     jwtIssuer: process.env.JWT_ISSUER ?? 'watchwatcher-api',
     jwtAudience: process.env.JWT_AUDIENCE ?? 'watchwatcher-app',
     googleClientId: process.env.GOOGLE_CLIENT_ID,

@@ -1,5 +1,5 @@
 import type {
-  EvaluationRequest as SharedEvaluationRequest,
+  OnlineEvaluationRequest as SharedEvaluationRequest,
   ErrorResponse,
   ProgressSnapshot,
   ProgressSyncResponse,
@@ -9,7 +9,8 @@ import type {
   StoredProgress,
 } from '@watchwatcher/shared/types';
 import type { ColregsExercise, ColregsRule, EvaluationResult, StudyModule, StudySnapshot } from '../app/domain-types';
-import type { AccountInput, ApiClient, Credentials, GoogleAuthChallenge, GoogleSignInInput, GoogleSignInResult } from './types';
+import { deletionMarkerKey, localCleanupKey, StorageRepository } from '../app/core/storage-repository.service';
+import type { AccountInput, AccountReauthentication, ApiClient, Credentials, GoogleAuthChallenge, GoogleSignInInput, GoogleSignInResult } from './types';
 
 type JsonObject = Record<string, unknown>;
 
@@ -58,12 +59,18 @@ interface ColregsOfficialTextAsset {
 let sessionToken: string | null = null;
 let sessionAccountId: string | null = null;
 let cloudRevision: number | null = null;
+let sessionGeneration = 0;
+let deletionRetry: { accountId: string; token: string; expiresAt: number } | null = null;
+let deletionRetryTimer: ReturnType<typeof setTimeout> | undefined;
+const deletionRetryLifetime = 2 * 60 * 1000;
+const deletionGenerations = new Map<string, number>();
+const deletedAccountIds = new Set<string>();
 let curriculumPromise: Promise<CurriculumAsset> | null = null;
 let colregsPromise: Promise<ColregsAsset> | null = null;
 let colregsOfficialTextPromise: Promise<ColregsOfficialTextAsset> | null = null;
 
 class ApiError extends Error {
-  constructor(readonly status: number, message: string, readonly code?: string, readonly details?: unknown) {
+  constructor(readonly status: number, message: string, readonly code?: string, readonly details?: unknown, readonly retryAfterSeconds?: number) {
     super(message);
   }
 }
@@ -157,7 +164,10 @@ function parseEvaluation(value: unknown, topicId: string): EvaluationResult {
   const score = finiteNumber(evaluation['score'], 'evaluation score');
   const source = evaluation['source'];
   const misconceptionTag = evaluation['misconceptionTag'];
-  if (score < 0 || score > 1 || (source !== 'online' && source !== 'offline')) {
+  const criticalFailure = evaluation['criticalFailure'];
+  const criticalFailureReason = evaluation['criticalFailureReason'];
+  if (score < 0 || score > 1 || source !== 'online' || typeof criticalFailure !== 'boolean'
+    || (criticalFailure ? typeof criticalFailureReason !== 'string' || !criticalFailureReason.trim() : criticalFailureReason !== null)) {
     throw new Error('The API returned an invalid evaluation result.');
   }
   if (misconceptionTag !== null && typeof misconceptionTag !== 'string') {
@@ -169,7 +179,9 @@ function parseEvaluation(value: unknown, topicId: string): EvaluationResult {
     misconceptionTag,
     followUpDrill: text(evaluation['followUpDrill'], 'follow-up drill'),
     source,
-    passed: score >= (/colregs|emerg|mob/i.test(topicId) ? 0.85 : 0.8),
+    criticalFailure,
+    criticalFailureReason: criticalFailureReason as string | null,
+    passed: !criticalFailure && score >= (/colregs|emerg|mob/i.test(topicId) ? 0.85 : 0.8),
   };
 }
 
@@ -182,7 +194,7 @@ function errorMessage(value: unknown, fallback: string): string {
   return fallback || 'The request could not be completed.';
 }
 
-async function request(path: string, init: RequestInit = {}, authenticated = false): Promise<unknown> {
+async function request(path: string, init: RequestInit = {}, authenticated = false, acceptStaleSuccess = false): Promise<unknown> {
   if (authenticated && !sessionToken) throw new Error('Sign in to use account services.');
   const tokenAtRequest = authenticated ? sessionToken : null;
   const accountAtRequest = authenticated ? sessionAccountId : null;
@@ -191,7 +203,7 @@ async function request(path: string, init: RequestInit = {}, authenticated = fal
   if (authenticated && sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
   const response = await fetch(`/api${path}`, { ...init, headers });
   const body: unknown = await response.json().catch(() => null);
-  if (authenticated && (sessionToken !== tokenAtRequest || sessionAccountId !== accountAtRequest)) {
+  if (authenticated && (sessionToken !== tokenAtRequest || sessionAccountId !== accountAtRequest) && !(acceptStaleSuccess && response.ok)) {
     throw new Error('Account changed while an API request was in progress.');
   }
   if (!response.ok) {
@@ -199,11 +211,15 @@ async function request(path: string, init: RequestInit = {}, authenticated = fal
       sessionToken = null;
       sessionAccountId = null;
       cloudRevision = null;
+      window.dispatchEvent(new CustomEvent('watchwatcher-session-expired', { detail: accountAtRequest }));
     }
     const errorBody = typeof body === 'object' && body !== null && !Array.isArray(body)
       ? (body as Partial<ErrorResponse>).error
       : undefined;
-    throw new ApiError(response.status, errorMessage(body, response.statusText), errorBody?.code, errorBody?.details);
+    const retryAfter = response.headers.get('Retry-After');
+    const retryAfterSeconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : undefined;
+    throw new ApiError(response.status, errorMessage(body, response.statusText), errorBody?.code, errorBody?.details,
+      retryAfterSeconds !== undefined && retryAfterSeconds > 0 && retryAfterSeconds <= 86400 ? retryAfterSeconds : undefined);
   }
   return body;
 }
@@ -328,8 +344,23 @@ function sessionRequest(input: AccountInput | Credentials): RequestInit {
   return { method: 'POST', body: JSON.stringify(input) };
 }
 
-function acceptSession(value: unknown): PublicAccount {
+async function acceptSession(value: unknown, generation: number): Promise<PublicAccount> {
+  if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
   const result = parseSession(value);
+  if (result.accountId !== result.user.id) throw new Error('The API returned an invalid session account.');
+  let tombstone: boolean;
+  try { tombstone = await new StorageRepository().isAccountDeleted(result.accountId); }
+  catch { throw new Error('Local account status is unavailable. Close other tabs and try again.'); }
+  if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
+  if (deletedAccountIds.has(result.accountId) || localStorage.getItem(deletionMarkerKey(result.accountId))) {
+    throw new Error('This account has been deleted.');
+  }
+  if (localStorage.getItem(localCleanupKey(result.accountId))) {
+    throw new Error('Local data was erased on this browser profile. To recover an account that still exists, use a separate browser profile; server data may return and a pending deletion may still complete.');
+  }
+  if (tombstone) {
+    throw new Error('This account has been deleted.');
+  }
   sessionToken = result.session;
   sessionAccountId = result.accountId;
   cloudRevision = null;
@@ -340,16 +371,80 @@ export function getAuthenticatedAccountId(): string | null {
   return sessionAccountId;
 }
 
+function clearDeletionRetry(): void {
+  deletionRetry = null;
+  clearTimeout(deletionRetryTimer);
+  window.dispatchEvent(new Event('watchwatcher-deletion-retry-changed'));
+}
+
+export function canConfirmDeletion(accountId: string): boolean {
+  if (deletionRetry && deletionRetry.expiresAt <= Date.now()) clearDeletionRetry();
+  return deletionRetry?.accountId === accountId;
+}
+
+export async function confirmDeletionReceipt(accountId: string): Promise<void> {
+  if (!canConfirmDeletion(accountId) || !deletionRetry) throw new Error('Deletion confirmation is no longer available in this tab. The server outcome remains unconfirmed.');
+  const retry = deletionRetry;
+  const response = await fetch('/api/account', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${retry.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmation: 'DELETE', receiptOnly: true }),
+  });
+  if (deletionRetry !== retry || retry.expiresAt <= Date.now()) throw new Error('Deletion confirmation expired or the account changed. The server outcome remains unconfirmed.');
+  if (response.status !== 204) throw new Error('Deletion could not be confirmed. Server data may still exist.');
+  clearDeletionRetry();
+  deletedAccountIds.add(accountId);
+  if (sessionAccountId === accountId && sessionToken === retry.token) {
+    sessionToken = null;
+    sessionAccountId = null;
+    cloudRevision = null;
+  }
+}
+
+async function revokeSession(token: string | null): Promise<void> {
+  if (!token) return;
+  if (!navigator.onLine) throw new Error('Remote sign-out could not be confirmed.');
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => { controller.abort(); reject(new Error('Remote sign-out timed out.')); }, 5000);
+    });
+    const response = await Promise.race([
+      fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, signal: controller.signal }),
+      timeout,
+    ]);
+    if (response.status !== 204) throw new Error('Remote sign-out could not be confirmed.');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function logoutAccountSession(accountId: string): Promise<void> {
+  deletionGenerations.set(accountId, (deletionGenerations.get(accountId) ?? 0) + 1);
+  if (deletionRetry?.accountId === accountId) clearDeletionRetry();
+  if (sessionAccountId !== accountId) return Promise.resolve();
+  const token = sessionToken;
+  sessionToken = null;
+  sessionAccountId = null;
+  cloudRevision = null;
+  return revokeSession(token);
+}
+
 export const liveClient: ApiClient = {
   async getCurrentUser() {
     const result = object(await request('/auth/me', {}, true), 'current-user response');
     return parseAccount(result['user']);
   },
   async createAccount(input: AccountInput) {
-    return acceptSession(await request('/auth/register', sessionRequest(input)));
+    clearDeletionRetry();
+    const generation = ++sessionGeneration;
+    return acceptSession(await request('/auth/register', sessionRequest(input)), generation);
   },
   async login(credentials: Credentials) {
-    return acceptSession(await request('/auth/login', sessionRequest(credentials)));
+    clearDeletionRetry();
+    const generation = ++sessionGeneration;
+    return acceptSession(await request('/auth/login', sessionRequest(credentials)), generation);
   },
   async getGoogleClientId(): Promise<string> {
     const result = object(await request('/auth/google/config'), 'Google sign-in configuration');
@@ -364,10 +459,13 @@ export const liveClient: ApiClient = {
     };
   },
   async googleSignIn(input: GoogleSignInInput): Promise<GoogleSignInResult> {
+    clearDeletionRetry();
+    const generation = ++sessionGeneration;
     try {
-      const user = acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }));
+      const user = await acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }), generation);
       return { kind: 'authenticated', user };
     } catch (error) {
+      if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
       if (error instanceof ApiError && error.status === 409 && error.code === 'CONFLICT') {
         const details = typeof error.details === 'object' && error.details !== null ? error.details as Record<string, unknown> : {};
         if (details['reason'] === 'GOOGLE_ACCOUNT_LINK_REQUIRED') {
@@ -377,10 +475,40 @@ export const liveClient: ApiClient = {
       throw error;
     }
   },
+  async deleteAccount(accountId: string, reauthentication: AccountReauthentication): Promise<void> {
+    if (!sessionToken || sessionAccountId !== accountId) throw new Error('Account changed. Sign in again before deleting.');
+    const generation = sessionGeneration;
+    const deletionGeneration = deletionGenerations.get(accountId) ?? 0;
+    const token = sessionToken;
+    try {
+      await request('/account', { method: 'DELETE', body: JSON.stringify({ confirmation: 'DELETE', reauthentication }) }, true, true);
+    } catch (error) {
+      const definite = error instanceof ApiError && (error.status === 401 || error.status === 422 || error.status === 429 || (error.status === 403 && error.code === 'REAUTHENTICATION_FAILED'));
+      if (!definite && generation === sessionGeneration && deletionGeneration === (deletionGenerations.get(accountId) ?? 0)) {
+        clearDeletionRetry();
+        deletionRetry = { accountId, token, expiresAt: Date.now() + deletionRetryLifetime };
+        deletionRetryTimer = setTimeout(clearDeletionRetry, deletionRetryLifetime);
+        window.dispatchEvent(new Event('watchwatcher-deletion-retry-changed'));
+      }
+      throw error;
+    }
+    if (generation === sessionGeneration && deletionRetry?.accountId === accountId && deletionRetry.token === token) clearDeletionRetry();
+    deletedAccountIds.add(accountId);
+    if (sessionAccountId === accountId) {
+      if (generation === sessionGeneration) sessionGeneration++;
+      sessionToken = null;
+      sessionAccountId = null;
+      cloudRevision = null;
+    }
+  },
   async logout() {
+    clearDeletionRetry();
+    const token = sessionToken;
+    sessionGeneration++;
     sessionToken = null;
     sessionAccountId = null;
     cloudRevision = null;
+    await revokeSession(token);
   },
   async getStudySnapshot(): Promise<StudySnapshot> {
     const content = await curriculum();
@@ -462,9 +590,11 @@ export const liveClient: ApiClient = {
     return { syncedAt, revision: nextRevision };
   },
   async evaluateAnswer(input: SharedEvaluationRequest): Promise<EvaluationResult> {
-    return parseEvaluation(
-      await request('/exam/evaluate', { method: 'POST', body: JSON.stringify(input) }, true),
-      input.topicId,
-    );
+    if (input.onlineConsent !== true) throw new Error('Online evaluation requires explicit consent.');
+    if (input.answer.trim().length > 12000) throw new Error('Shorten your answer to 12,000 characters or fewer.');
+    const tokenAtStart = sessionToken;
+    const result = await request('/exam/evaluate', { method: 'POST', body: JSON.stringify({ topicId: input.topicId, context: input.context, answer: input.answer, onlineConsent: true }) }, true);
+    if (sessionToken !== tokenAtStart) throw new Error('Account changed while the answer was being evaluated.');
+    return parseEvaluation(result, input.topicId);
   },
 };

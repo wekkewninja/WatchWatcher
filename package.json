@@ -16,6 +16,7 @@
     "test:api": "npm test --workspace services/watchwatcher-api",
     "test:coverage": "npm test --workspace services/watchwatcher-web -- --coverage && npm test --workspace services/watchwatcher-api -- --coverage && node scripts/check-coverage.mjs",
     "test:coverage-gate": "node --test scripts/check-coverage.test.mjs",
+    "test:migrations": "node --test scripts/migrations.test.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "test:icons": "node scripts/test-icons.mjs",
     "colregs:import": "node services/watchwatcher-web/scripts/import-colregs-official-text.mjs",
@@ -24,5 +25,10 @@
   },
   "devDependencies": {
     "sharp": "^0.35.5"
+  },
+  "overrides": {
+    "node-pg-migrate": {
+      "glob": "^14.0.6"
+    }
   }
 }

@@ -9,24 +9,27 @@ import { MatInputModule } from '@angular/material/input';
 import { AuthStateService } from '../core/auth-state.service';
 import { GoogleSignInButtonComponent, type GoogleCredentialEvent } from '../shared/google-sign-in-button.component';
 import { authenticationErrorMessage } from './auth-error';
+import { hasMinimumPasswordCharacters, isPasswordWithinLimits, PASSWORD_LIMIT_MESSAGE } from '../../../../shared/schemas/password';
 
 @Component({
   standalone: true,
   imports: [FormsModule, RouterLink, MatButtonModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, GoogleSignInButtonComponent],
   template: `
     <main class="auth-page"><mat-card class="auth-card"><div class="auth-mark"><mat-icon>person_add</mat-icon></div><span class="eyebrow">A local study record, with optional sync</span><h1>Create account</h1><p>Set up sign-in for cloud progress and online evaluation. Offline study remains available either way.</p>
-      <form (ngSubmit)="submit()"><mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput name="name" [(ngModel)]="name" required minlength="2" autocomplete="name"></mat-form-field><mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput type="email" name="email" [(ngModel)]="email" required email autocomplete="email"></mat-form-field><mat-form-field appearance="outline"><mat-label>Password</mat-label><input matInput type="password" name="password" [(ngModel)]="password" required minlength="10" autocomplete="new-password"><mat-hint>Use at least 10 characters.</mat-hint></mat-form-field><mat-form-field appearance="outline"><mat-label>Confirm password</mat-label><input matInput type="password" name="confirmPassword" [(ngModel)]="confirmPassword" required autocomplete="new-password"><mat-error>Passwords must match.</mat-error></mat-form-field>
+      <form (ngSubmit)="submit()"><mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput name="name" [(ngModel)]="name" required minlength="2" autocomplete="name"></mat-form-field><mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput type="email" name="email" [(ngModel)]="email" required email autocomplete="email"></mat-form-field><mat-form-field appearance="outline"><mat-label>Password</mat-label><input matInput type="password" name="password" [(ngModel)]="password" required autocomplete="new-password"><mat-hint>10 to 1,024 Unicode code points.</mat-hint></mat-form-field><mat-form-field appearance="outline"><mat-label>Confirm password</mat-label><input matInput type="password" name="confirmPassword" [(ngModel)]="confirmPassword" required autocomplete="new-password"><mat-error>Passwords must match.</mat-error></mat-form-field>
+        @if (!passwordWithinLimits(password)) { <p class="inline-error" role="alert">{{ passwordLimitMessage }}</p> }
         @if (error()) { <p class="inline-error" role="alert">{{ error() }}</p> }
-        <button mat-flat-button type="submit" [disabled]="busy() || name.trim().length < 2 || !email || password.length < 10 || password !== confirmPassword"><mat-icon>person_add</mat-icon> Create account</button>
+        <button mat-flat-button type="submit" [disabled]="busy() || name.trim().length < 2 || !email || !passwordMinimum(password, 10) || !passwordWithinLimits(password) || password !== confirmPassword"><mat-icon>person_add</mat-icon> Create account</button>
       </form>
       @if (googleLink(); as link) {
         <section class="google-link-confirmation" aria-label="Confirm Google account linking">
           <p>This Google account matches an existing WatchWatcher email. Enter that account's password to explicitly link Google.</p>
           <form (ngSubmit)="confirmGoogleLink()">
-            <mat-form-field appearance="outline"><mat-label>Existing account password</mat-label><input matInput type="password" name="googleLinkPassword" [(ngModel)]="googleLinkPassword" required autocomplete="current-password"></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Existing account password</mat-label><input matInput type="password" name="googleLinkPassword" [(ngModel)]="googleLinkPassword" required autocomplete="current-password"><mat-hint>At least 8 Unicode code points.</mat-hint></mat-form-field>
+            @if (!passwordWithinLimits(googleLinkPassword)) { <p class="inline-error" role="alert">{{ passwordLimitMessage }}</p> }
             <label class="google-link-consent"><input type="checkbox" name="googleLinkConfirmed" [(ngModel)]="googleLinkConfirmed"> I confirm linking this Google account to my existing WatchWatcher account.</label>
             @if (error()) { <p class="inline-error" role="alert">{{ error() }}</p> }
-            <button mat-flat-button type="submit" [disabled]="busy() || !googleLinkConfirmed || googleLinkPassword.length < 8"><mat-icon>link</mat-icon> Confirm and link</button>
+            <button mat-flat-button type="submit" [disabled]="busy() || !googleLinkConfirmed || !passwordMinimum(googleLinkPassword, 8) || !passwordWithinLimits(googleLinkPassword)"><mat-icon>link</mat-icon> Confirm and link</button>
             <button mat-button type="button" (click)="cancelGoogleLink()" [disabled]="busy()">Cancel</button>
           </form>
         </section>
@@ -39,6 +42,9 @@ import { authenticationErrorMessage } from './auth-error';
   `,
 })
 export class CreateAccountPage {
+  readonly passwordWithinLimits = isPasswordWithinLimits;
+  readonly passwordMinimum = hasMinimumPasswordCharacters;
+  readonly passwordLimitMessage = PASSWORD_LIMIT_MESSAGE;
   @ViewChild(GoogleSignInButtonComponent) private googleButton?: GoogleSignInButtonComponent;
   name = '';
   email = '';
@@ -52,6 +58,11 @@ export class CreateAccountPage {
   constructor(private readonly auth: AuthStateService, private readonly router: Router) {}
 
   async submit(): Promise<void> {
+    if (!isPasswordWithinLimits(this.password)) {
+      this.error.set(PASSWORD_LIMIT_MESSAGE);
+      return;
+    }
+    if (!hasMinimumPasswordCharacters(this.password, 10)) { this.error.set('Password must contain at least 10 Unicode code points.'); return; }
     this.busy.set(true);
     this.error.set('');
     try { await this.auth.createAccount(this.name.trim(), this.email, this.password); await this.router.navigateByUrl('/'); }
@@ -78,7 +89,9 @@ export class CreateAccountPage {
 
   async confirmGoogleLink(): Promise<void> {
     const pending = this.googleLink();
-    if (!pending || !this.googleLinkConfirmed || this.googleLinkPassword.length < 8) return;
+    if (!pending || !this.googleLinkConfirmed) return;
+    if (!isPasswordWithinLimits(this.googleLinkPassword)) { this.error.set(PASSWORD_LIMIT_MESSAGE); return; }
+    if (!hasMinimumPasswordCharacters(this.googleLinkPassword, 8)) { this.error.set('Password must contain at least 8 Unicode code points.'); return; }
     this.busy.set(true);
     this.error.set('');
     try {
