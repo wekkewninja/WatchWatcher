@@ -1,0 +1,13 @@
+.git
+.github
+.vscode
+.azure
+**/node_modules
+**/dist
+**/coverage
+**/.angular
+**/local.settings.json
+.env
+.env.*
+!.env.example
+*.log

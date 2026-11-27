@@ -26,6 +26,16 @@ The default Node.js version is pinned to 22.22.3 in `.nvmrc`, the minimum requir
 
 The API is served at `http://localhost:7071/api`; the Angular development server proxies `/api` to Functions. Migrations create schema only and do not insert seed data.
 
+### Containerized local stack
+
+To run the PWA, API, PostgreSQL, and Azurite entirely in containers, copy `.env.example` to `.env`, replace `JWT_SECRET` and `RATE_LIMIT_SECRET` with different random secrets of at least 32 characters, then run:
+
+```sh
+docker compose --profile app up --build
+```
+
+The API container waits for PostgreSQL, applies migrations once, then starts Azure Functions Core Runtime. The Angular development server is available at `http://localhost:4201` and proxies `/api` to the API container. The API is also available directly at `http://localhost:7072/api`. These host ports are overridable with `WEB_HOST_PORT` and `API_HOST_PORT`. PostgreSQL and Azurite are bound to loopback host ports `5433`, `10000`, `10001`, and `10002`. The `app` profile is opt-in, so existing emulator-only tasks remain unchanged. Stop the containers with `docker compose --profile app down`; named database and Azurite volumes are retained.
+
 ## Verification
 
 - `npm test --workspace services/watchwatcher-web`
