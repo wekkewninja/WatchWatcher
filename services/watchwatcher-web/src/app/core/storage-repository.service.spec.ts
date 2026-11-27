@@ -7,6 +7,7 @@ import { StorageRepository } from './storage-repository.service';
 describe('StorageRepository', () => {
   beforeEach(async () => {
     localStorage.clear();
+    sessionStorage.clear();
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.deleteDatabase('watchwatcher-local');
       request.onsuccess = () => resolve();
@@ -91,9 +92,11 @@ describe('StorageRepository', () => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    localStorage.setItem('watchwatcher-signed-out', 'true');
+    sessionStorage.setItem('watchwatcher-signed-out', 'true');
     const auth = new AuthStateService();
+    await auth.initialization;
     auth.user.set({ id: 'blocked-owner', name: 'Sailor', email: 'sailor@example.test' });
+    auth.cloudAuth.set('authenticated');
     vi.spyOn(api, 'deleteAccount').mockResolvedValue();
     const cleanup = vi.spyOn(StorageRepository.prototype, 'deleteAccountProgress');
     try {
