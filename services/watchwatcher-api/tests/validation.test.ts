@@ -1,10 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { credentialsSchema, googleSignInSchema, progressSyncSchema, registerSchema } from '../../shared/schemas/validation';
+import { credentialsSchema, deleteAccountSchema, googleSignInSchema, progressSyncSchema, registerSchema } from '../../shared/schemas/validation';
 
 describe('API input contracts', () => {
+  it('requires explicit deletion confirmation and exactly one reauthentication method', () => {
+    const password = { confirmation: 'DELETE', reauthentication: { type: 'password', password: 'password' } };
+    const google = { confirmation: 'DELETE', reauthentication: { type: 'google', credential: 'g'.repeat(100), challengeId: '4a3eea85-72f6-4f90-a045-cf8fc2d83ff4' } };
+    expect(deleteAccountSchema.safeParse(password).success).toBe(true);
+    expect(deleteAccountSchema.safeParse(google).success).toBe(true);
+    expect(deleteAccountSchema.safeParse({ ...password, confirmation: 'delete' }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({ ...password, accountId: 'another-account' }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({ ...google, reauthentication: { ...google.reauthentication, password: 'password' } }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({ ...google, reauthentication: { ...google.reauthentication, challengeId: 'invalid' } }).success).toBe(false);
+  });
   it('accepts a valid registration and rejects weak passwords', () => {
     expect(registerSchema.safeParse({ name: 'S. Taylor', email: 'sailor@example.test', password: 'a-strong-password' }).success).toBe(true);
     expect(registerSchema.safeParse({ name: 'S. Taylor', email: 'sailor@example.test', password: 'short' }).success).toBe(false);
+  });
+
+  it('prevents new bcrypt passwords from exceeding 72 UTF-8 bytes', () => {
+    const account = { name: 'Sailor', email: 'sailor@example.test' };
+    expect(registerSchema.safeParse({ ...account, password: 'a'.repeat(72) }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...account, password: 'a'.repeat(73) }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...account, password: '\u00e9'.repeat(36) }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...account, password: '\u00e9'.repeat(37) }).success).toBe(false);
   });
 
   it('validates credentials and rejects unknown fields', () => {

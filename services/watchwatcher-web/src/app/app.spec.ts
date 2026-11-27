@@ -36,6 +36,20 @@ describe('App', () => {
     expect(compiled.querySelector('.brand-lockup')?.textContent).toContain('WatchWatcher');
   });
 
+  it('shows an unresolved deletion after reload without claiming local data was erased', async () => {
+    localStorage.setItem('watchwatcher-deletion-intent:account-a', 'pending');
+    localStorage.setItem('watchwatcher-signed-out', 'true');
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('deletion outcome for account account-a is unconfirmed');
+    expect(text).toContain('Local data has been kept');
+    expect(text).toContain('Without its valid session');
+    localStorage.removeItem('watchwatcher-deletion-intent:account-a');
+    localStorage.removeItem('watchwatcher-signed-out');
+  });
+
   it('navigates to login after signing out', async () => {
     const fixture = TestBed.createComponent(App);
     const auth = TestBed.inject(AuthStateService);

@@ -52,6 +52,10 @@ export class CreateAccountPage {
   constructor(private readonly auth: AuthStateService, private readonly router: Router) {}
 
   async submit(): Promise<void> {
+    if (new TextEncoder().encode(this.password).length > 72) {
+      this.error.set('Password must be at most 72 UTF-8 bytes.');
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try { await this.auth.createAccount(this.name.trim(), this.email, this.password); await this.router.navigateByUrl('/'); }

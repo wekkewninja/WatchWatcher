@@ -4,6 +4,7 @@ import { authGuard } from './core/auth.guard';
 export const routes: Routes = [
 	{ path: 'login', loadComponent: () => import('./pages/login.page').then((page) => page.LoginPage) },
 	{ path: 'create-account', loadComponent: () => import('./pages/create-account.page').then((page) => page.CreateAccountPage) },
+	{ path: 'account', loadComponent: () => import('./pages/account.page').then((page) => page.AccountPage), canActivate: [authGuard] },
 	{ path: '', loadComponent: () => import('./pages/study-desk.page').then((page) => page.StudyDeskPage), canActivate: [authGuard] },
 	{ path: 'examiner', loadComponent: () => import('./pages/examiner.page').then((page) => page.ExaminerPage), canActivate: [authGuard] },
 	{ path: 'exam', loadComponent: () => import('./pages/assessment-exam.page').then((page) => page.AssessmentExamPage), canActivate: [authGuard] },

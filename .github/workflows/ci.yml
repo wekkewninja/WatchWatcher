@@ -43,6 +43,10 @@ jobs:
         run: npm run test:migrations
         env:
           MIGRATION_TEST_DATABASE_URL: postgresql://migration_test:migration_test@localhost:5432/migration_test
+      - name: Test PostgreSQL progress isolation
+        run: npm test --workspace services/watchwatcher-api -- tests/postgresDatabase.integration.test.ts
+        env:
+          MIGRATION_TEST_DATABASE_URL: postgresql://migration_test:migration_test@localhost:5432/migration_test
       - run: npm run test:coverage
       - run: npm run test:icons
       - name: Audit production dependencies

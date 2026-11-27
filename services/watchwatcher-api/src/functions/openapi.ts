@@ -69,6 +69,16 @@ const specification = {
           },
         },
       },
+      DeleteAccountRequest: {
+        type: 'object', additionalProperties: false, required: ['confirmation', 'reauthentication'],
+        properties: {
+          confirmation: { type: 'string', enum: ['DELETE'] },
+          reauthentication: { oneOf: [
+            { type: 'object', additionalProperties: false, required: ['type', 'password'], properties: { type: { type: 'string', enum: ['password'] }, password: { type: 'string', minLength: 1, maxLength: 128 } } },
+            { type: 'object', additionalProperties: false, required: ['type', 'credential', 'challengeId'], properties: { type: { type: 'string', enum: ['google'] }, credential: { type: 'string', minLength: 100, maxLength: 10000 }, challengeId: { type: 'string', format: 'uuid' } } },
+          ] },
+        },
+      },
     },
   },
   paths: {
@@ -107,6 +117,15 @@ const specification = {
       },
     },
     '/auth/me': { get: { summary: 'Read the signed-in user', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Current user' } } } },
+    '/account': {
+      delete: {
+        summary: 'Delete the current account and its server records',
+        description: 'Accounts and server records are retained until learner deletion. Deletion is online only. Google reauthentication requires a fresh single-use challenge from /auth/google/challenge. A valid session for an already deleted account also returns 204. Backup retention is pending legal and operational determination.',
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DeleteAccountRequest' } } } },
+        responses: { '204': { description: 'Account deleted or already absent; no response body' }, '401': { description: 'Invalid or expired bearer session' }, '403': { description: 'Reauthentication failed (REAUTHENTICATION_FAILED)' }, '422': { description: 'Invalid request' }, '503': { description: 'Required service not configured' } },
+      },
+    },
     '/progress': {
       get: { summary: 'Read progress for the authenticated account', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Account progress snapshot', content: { 'application/json': { schema: { $ref: '#/components/schemas/StoredProgress' } } } } } },
       put: {

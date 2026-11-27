@@ -32,6 +32,10 @@ export type GoogleSignInResult =
   | { kind: 'authenticated'; user: PublicAccount }
   | { kind: 'link-required' };
 
+export type AccountReauthentication =
+  | { type: 'password'; password: string }
+  | { type: 'google'; credential: string; challengeId: string };
+
 export interface ApiClient {
   getCurrentUser(): Promise<PublicAccount>;
   createAccount(input: AccountInput): Promise<PublicAccount>;
@@ -39,6 +43,7 @@ export interface ApiClient {
   getGoogleClientId(): Promise<string>;
   createGoogleChallenge(): Promise<GoogleAuthChallenge>;
   googleSignIn(input: GoogleSignInInput): Promise<GoogleSignInResult>;
+  deleteAccount(accountId: string, reauthentication: AccountReauthentication): Promise<void>;
   logout(): Promise<void>;
   getStudySnapshot(): Promise<StudySnapshot>;
   getModules(): Promise<StudyModule[]>;

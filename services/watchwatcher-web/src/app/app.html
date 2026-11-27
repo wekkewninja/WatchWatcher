@@ -4,6 +4,7 @@
     <span class="toolbar-spacer"></span>
     @if (auth.user(); as user) {
       <span class="user-name"><span class="user-avatar">{{ user.name.slice(0, 1) }}</span>{{ user.name }}</span>
+      <a mat-icon-button routerLink="/account" aria-label="Account settings" title="Account settings"><mat-icon>manage_accounts</mat-icon></a>
       <button mat-icon-button (click)="toggleTheme()" [attr.aria-label]="darkMode() ? 'Use light theme' : 'Use dark theme'" [title]="darkMode() ? 'Use light theme' : 'Use dark theme'"><mat-icon>{{ darkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon></button>
       <button mat-icon-button (click)="signOut()" aria-label="Sign out" title="Sign out"><mat-icon>logout</mat-icon></button>
     } @else {
@@ -21,4 +22,20 @@
     </nav>
   }
 </header>
+@for (ownerId of auth.unresolvedDeletions(); track ownerId) {
+  <div role="alert" style="padding: 12px 20px;">
+    The deletion outcome for account {{ ownerId }} is unconfirmed. Local data has been kept.
+    @if (auth.user()?.id === ownerId) {
+      <a mat-button routerLink="/account">Retry account deletion</a>
+    } @else {
+      Sign in to that account to retry. Without its valid session, the outcome cannot be confirmed here.
+    }
+  </div>
+}
+@if (auth.cleanupPending()) {
+  <div role="alert" style="padding: 12px 20px;">
+    Account deleted, but this device's local data has not yet been erased. Close other WatchWatcher tabs and retry if this message remains.
+    <button mat-button type="button" (click)="auth.retryLocalCleanup()">Retry local deletion</button>
+  </div>
+}
 <router-outlet />

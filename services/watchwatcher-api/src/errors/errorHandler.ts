@@ -3,11 +3,12 @@ import { ZodError } from 'zod';
 import type { ErrorCode } from '../../../shared/types/api';
 import { logger } from '../logger';
 import { AppError } from './AppError';
+import { RateLimitError } from './errorTypes';
 
 export function handleError(error: unknown, context: InvocationContext): HttpResponseInit {
   if (error instanceof AppError) {
     logger.warn({ err: error, code: error.code, invocationId: context.invocationId }, error.message);
-    return { status: error.statusCode, jsonBody: { error: { code: error.code, message: error.message, details: error.details } } };
+    return { status: error.statusCode, ...(error instanceof RateLimitError ? { headers: { 'Retry-After': String(error.retryAfter) } } : {}), jsonBody: { error: { code: error.code, message: error.message, details: error.details } } };
   }
   if (error instanceof ZodError) {
     const details = error.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }));

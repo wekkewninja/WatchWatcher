@@ -1,5 +1,13 @@
 # WatchwatcherWeb
 
+## Account deletion
+
+Account settings offers online deletion after explicit confirmation and fresh password or Google authentication. Account data is retained until deletion. A confirmed deletion signs out the deleted account, rejects later sessions for that account, and removes its local progress; if local storage is unavailable, the app reports the failure and retries pending cleanup on startup or by request. A persistent per-account tombstone prevents stale local writes from recreating deleted progress. IndexedDB version 3 fences older version-2 clients after cleanup; an older open tab can block the upgrade, leaving cleanup pending until it closes and cleanup is retried. Other accounts and guest progress are unaffected. Offline devices cannot be remotely erased; clear their local data separately. Durable retry requires browser local storage or a successfully committed IndexedDB tombstone.
+
+Session acceptance checks both the local deletion marker and any readable IndexedDB tombstone. If IndexedDB is unavailable, the in-memory and localStorage markers still apply; after a reload, a missing localStorage marker cannot be replaced by an unreadable IndexedDB tombstone.
+
+Before sending a deletion request, the app stores an account-specific intent without credentials. If the response is lost, the outcome remains unconfirmed and local data is retained. Retry deletion with fresh authentication while signed in to that same account. Sessions are held only in memory, so after reload, without a valid session, the app cannot confirm whether the server deleted the account; a failed sign-in alone does not prove deletion. A definite pre-deletion 401, 422, 429, or reauthentication failure removes the intent only when there was no earlier ambiguous attempt. Deletion is blocked if the intent cannot be stored.
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.3.0.
 
 ## Development server

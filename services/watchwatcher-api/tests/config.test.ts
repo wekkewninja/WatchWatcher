@@ -8,6 +8,7 @@ describe('API configuration', () => {
     vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', undefined);
     vi.stubEnv('DATABASE_URL', undefined);
     vi.stubEnv('JWT_SECRET', undefined);
+    vi.stubEnv('RATE_LIMIT_SECRET', undefined);
     vi.stubEnv('GOOGLE_CLIENT_ID', undefined);
     vi.stubEnv('GEMINI_API_KEY', undefined);
     vi.stubEnv('AZURE_STORAGE_ACCOUNT', undefined);
@@ -17,6 +18,7 @@ describe('API configuration', () => {
       environment: 'Production',
       databaseUrl: undefined,
       jwtSecret: undefined,
+      rateLimitSecret: undefined,
       jwtIssuer: 'watchwatcher-api',
       jwtAudience: 'watchwatcher-app',
       googleClientId: undefined,
@@ -30,9 +32,10 @@ describe('API configuration', () => {
     vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Development');
     vi.stubEnv('JWT_ISSUER', 'custom-issuer');
     vi.stubEnv('JWT_AUDIENCE', 'custom-audience');
+    vi.stubEnv('RATE_LIMIT_SECRET', 'synthetic-rate-limit-setting');
     vi.stubEnv('REQUIRED_TEST_SETTING', 'configured');
 
-    expect(loadConfig()).toMatchObject({ environment: 'Development', jwtIssuer: 'custom-issuer', jwtAudience: 'custom-audience' });
+    expect(loadConfig()).toMatchObject({ environment: 'Development', jwtIssuer: 'custom-issuer', jwtAudience: 'custom-audience', rateLimitSecret: 'synthetic-rate-limit-setting' });
     expect(requireSetting('REQUIRED_TEST_SETTING')).toBe('configured');
     expect(() => requireSetting('MISSING_TEST_SETTING')).toThrow('Missing required environment variable: MISSING_TEST_SETTING');
   });

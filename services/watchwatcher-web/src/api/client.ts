@@ -9,7 +9,8 @@ import type {
   StoredProgress,
 } from '@watchwatcher/shared/types';
 import type { ColregsExercise, ColregsRule, EvaluationResult, StudyModule, StudySnapshot } from '../app/domain-types';
-import type { AccountInput, ApiClient, Credentials, GoogleAuthChallenge, GoogleSignInInput, GoogleSignInResult } from './types';
+import { deletionMarkerKey, StorageRepository } from '../app/core/storage-repository.service';
+import type { AccountInput, AccountReauthentication, ApiClient, Credentials, GoogleAuthChallenge, GoogleSignInInput, GoogleSignInResult } from './types';
 
 type JsonObject = Record<string, unknown>;
 
@@ -59,6 +60,7 @@ let sessionToken: string | null = null;
 let sessionAccountId: string | null = null;
 let cloudRevision: number | null = null;
 let sessionGeneration = 0;
+const deletedAccountIds = new Set<string>();
 let curriculumPromise: Promise<CurriculumAsset> | null = null;
 let colregsPromise: Promise<ColregsAsset> | null = null;
 let colregsOfficialTextPromise: Promise<ColregsOfficialTextAsset> | null = null;
@@ -183,7 +185,7 @@ function errorMessage(value: unknown, fallback: string): string {
   return fallback || 'The request could not be completed.';
 }
 
-async function request(path: string, init: RequestInit = {}, authenticated = false): Promise<unknown> {
+async function request(path: string, init: RequestInit = {}, authenticated = false, acceptStaleSuccess = false): Promise<unknown> {
   if (authenticated && !sessionToken) throw new Error('Sign in to use account services.');
   const tokenAtRequest = authenticated ? sessionToken : null;
   const accountAtRequest = authenticated ? sessionAccountId : null;
@@ -192,7 +194,7 @@ async function request(path: string, init: RequestInit = {}, authenticated = fal
   if (authenticated && sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
   const response = await fetch(`/api${path}`, { ...init, headers });
   const body: unknown = await response.json().catch(() => null);
-  if (authenticated && (sessionToken !== tokenAtRequest || sessionAccountId !== accountAtRequest)) {
+  if (authenticated && (sessionToken !== tokenAtRequest || sessionAccountId !== accountAtRequest) && !(acceptStaleSuccess && response.ok)) {
     throw new Error('Account changed while an API request was in progress.');
   }
   if (!response.ok) {
@@ -329,9 +331,17 @@ function sessionRequest(input: AccountInput | Credentials): RequestInit {
   return { method: 'POST', body: JSON.stringify(input) };
 }
 
-function acceptSession(value: unknown, generation: number): PublicAccount {
+async function acceptSession(value: unknown, generation: number): Promise<PublicAccount> {
   if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
   const result = parseSession(value);
+  if (result.accountId !== result.user.id) throw new Error('The API returned an invalid session account.');
+  let tombstone: boolean;
+  try { tombstone = await new StorageRepository().isAccountDeleted(result.accountId); }
+  catch { throw new Error('Local account status is unavailable. Close other tabs and try again.'); }
+  if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
+  if (tombstone || deletedAccountIds.has(result.accountId) || localStorage.getItem(deletionMarkerKey(result.accountId))) {
+    throw new Error('This account has been deleted.');
+  }
   sessionToken = result.session;
   sessionAccountId = result.accountId;
   cloudRevision = null;
@@ -370,7 +380,7 @@ export const liveClient: ApiClient = {
   async googleSignIn(input: GoogleSignInInput): Promise<GoogleSignInResult> {
     const generation = ++sessionGeneration;
     try {
-      const user = acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }), generation);
+      const user = await acceptSession(await request('/auth/google', { method: 'POST', body: JSON.stringify(input) }), generation);
       return { kind: 'authenticated', user };
     } catch (error) {
       if (generation !== sessionGeneration) throw new Error('Sign-in was superseded by another account change.');
@@ -381,6 +391,18 @@ export const liveClient: ApiClient = {
         }
       }
       throw error;
+    }
+  },
+  async deleteAccount(accountId: string, reauthentication: AccountReauthentication): Promise<void> {
+    if (!sessionToken || sessionAccountId !== accountId) throw new Error('Account changed. Sign in again before deleting.');
+    const generation = sessionGeneration;
+    await request('/account', { method: 'DELETE', body: JSON.stringify({ confirmation: 'DELETE', reauthentication }) }, true, true);
+    deletedAccountIds.add(accountId);
+    if (sessionAccountId === accountId) {
+      if (generation === sessionGeneration) sessionGeneration++;
+      sessionToken = null;
+      sessionAccountId = null;
+      cloudRevision = null;
     }
   },
   async logout() {

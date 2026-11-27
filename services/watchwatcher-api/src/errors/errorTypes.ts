@@ -9,6 +9,12 @@ export class ConflictError extends AppError {
 export class UnauthorizedError extends AppError {
   constructor(message = 'Authentication required') { super(401, 'UNAUTHORIZED', message); }
 }
+export class ReauthenticationError extends AppError {
+  constructor() { super(403, 'REAUTHENTICATION_FAILED', 'Reauthentication failed.'); }
+}
+export class RateLimitError extends AppError {
+  constructor(public readonly retryAfter: number) { super(429, 'RATE_LIMITED', 'Too many attempts. Please try again later.'); }
+}
 export class ServiceUnavailableError extends AppError {
   constructor(message = 'A required service is unavailable') { super(503, 'SERVICE_UNAVAILABLE', message); }
 }

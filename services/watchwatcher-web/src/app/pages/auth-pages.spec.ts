@@ -1,8 +1,11 @@
-import type { Router } from '@angular/router';
+import { Router } from '@angular/router';
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthStateService } from '../core/auth-state.service';
+import { AuthStateService } from '../core/auth-state.service';
 import { CreateAccountPage } from './create-account.page';
 import { LoginPage } from './login.page';
+import { AccountPage } from './account.page';
 
 const googleCredential = { credential: 'google-credential', challengeId: 'challenge-1' };
 const authenticated = { kind: 'authenticated', user: { id: 'user-1', name: 'Sailor', email: 'sailor@example.com' } };
@@ -64,6 +67,14 @@ describe('LoginPage', () => {
 });
 
 describe('CreateAccountPage', () => {
+  it('rejects new passwords longer than 72 UTF-8 bytes', async () => {
+    const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
+    page.password = '\u00e9'.repeat(37);
+    await page.submit();
+    expect(page.error()).toBe('Password must be at most 72 UTF-8 bytes.');
+    expect(auth.createAccount).not.toHaveBeenCalled();
+  });
+
   it('trims the name and creates an account', async () => {
     const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
     page.name = '  Sailor  ';
@@ -150,6 +161,79 @@ describe.each([
     await page.handleGoogleCredential(googleCredential);
     expect(page.error()).toBe('Google unavailable');
     expect(page.busy()).toBe(false);
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('AccountPage', () => {
+  const account = { id: 'user-1', name: 'Sailor', email: 'sailor@example.com' };
+  const accountAuth = { user: signal<typeof account | null>(account), accountGeneration: 4, deleteAccount: vi.fn() };
+
+  beforeEach(() => {
+    accountAuth.user.set(account);
+    accountAuth.accountGeneration = 4;
+    accountAuth.deleteAccount.mockReset();
+    router.navigateByUrl.mockClear();
+  });
+
+  it('displays the account and irreversible and offline-device warnings', async () => {
+    await TestBed.configureTestingModule({ imports: [AccountPage], providers: [
+      { provide: AuthStateService, useValue: accountAuth },
+      { provide: Router, useValue: router },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(AccountPage);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(account.email);
+    expect(text).toContain('irreversible');
+    expect(text).toContain('other offline devices cannot be remotely erased');
+    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
+    TestBed.resetTestingModule();
+  });
+
+  it('requires confirmation and connectivity before sending credentials', async () => {
+    const page = new AccountPage(accountAuth as unknown as AuthStateService, router as unknown as Router);
+    page.password = 'fresh-password';
+    await page.submitPassword();
+    expect(accountAuth.deleteAccount).not.toHaveBeenCalled();
+    page.confirmed = true;
+    page.confirmation = 'DELETE';
+    page.password = 'fresh-password';
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    await page.submitPassword();
+    expect(page.error()).toContain('Connect to the internet');
+    expect(accountAuth.deleteAccount).not.toHaveBeenCalled();
+    online.mockRestore();
+  });
+
+  it('submits fresh password or Google credentials and navigates only for the deleted session', async () => {
+    const page = new AccountPage(accountAuth as unknown as AuthStateService, router as unknown as Router);
+    page.confirmed = true;
+    page.confirmation = 'DELETE';
+    page.password = 'fresh-password';
+    accountAuth.deleteAccount.mockImplementationOnce(async () => { accountAuth.user.set(null); accountAuth.accountGeneration++; return true; });
+    await page.submitPassword();
+    expect(accountAuth.deleteAccount).toHaveBeenCalledWith(account.id, 4, { type: 'password', password: 'fresh-password' });
+    expect(page.password).toBe('');
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
+
+    accountAuth.user.set(account);
+    accountAuth.accountGeneration = 4;
+    router.navigateByUrl.mockClear();
+    accountAuth.deleteAccount.mockResolvedValueOnce(false);
+    await page.submitGoogle(googleCredential);
+    expect(accountAuth.deleteAccount).toHaveBeenLastCalledWith(account.id, 4, { type: 'google', ...googleCredential });
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('reports failed reauthentication without navigating', async () => {
+    const page = new AccountPage(accountAuth as unknown as AuthStateService, router as unknown as Router);
+    page.confirmed = true;
+    page.confirmation = 'DELETE';
+    page.password = 'incorrect';
+    accountAuth.deleteAccount.mockRejectedValueOnce(Object.assign(new Error('Reauthentication failed'), { status: 403, code: 'REAUTHENTICATION_FAILED' }));
+    await page.submitPassword();
+    expect(page.error()).toContain('Identity confirmation failed');
     expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 });

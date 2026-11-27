@@ -1,9 +1,10 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import type { PublicAccount } from '../../../shared/types/entities';
+import type { DeleteAccountRequest } from '../../../shared/types/api';
 import type { AppConfig } from './config';
-import { ConflictError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
+import { ConflictError, RateLimitError, ReauthenticationError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
 import type { IDatabaseService } from './interfaces/IDatabaseService';
 import type { AuthSession, GoogleAuthChallenge, GoogleAccountLinkRequest, GoogleSignInResult, IAuthService } from './interfaces/IAuthService';
 import { GoogleIdentityVerifier, type VerifiedGoogleIdentity } from './googleIdentityVerifier';
@@ -16,6 +17,8 @@ export class AuthService implements IAuthService {
   ) {}
 
   async register(input: { name: string; email: string; password: string }): Promise<AuthSession> {
+    input = { ...input, email: input.email.trim().toLowerCase() };
+    await this.consumeLimit('registration', input.email, 3600);
     const passwordHash = await bcrypt.hash(input.password, 12);
     try {
       const user = await this.database.createAccount({ id: randomUUID(), name: input.name, email: input.email, passwordHash });
@@ -27,6 +30,8 @@ export class AuthService implements IAuthService {
   }
 
   async login(input: { email: string; password: string }): Promise<AuthSession> {
+    input = { ...input, email: input.email.trim().toLowerCase() };
+    await this.consumeLimit('login', input.email, 900);
     const account = await this.database.findAccountByEmail(input.email);
     if (!account?.passwordHash || !(await bcrypt.compare(input.password, account.passwordHash))) throw new UnauthorizedError('Email or password is incorrect.');
     return this.createSession({ id: account.id, name: account.name, email: account.email });
@@ -75,6 +80,7 @@ export class AuthService implements IAuthService {
       if (!input.linkExisting) {
         return { kind: 'link-required' };
       }
+      await this.consumeLimit('login', identity.email.trim().toLowerCase(), 900);
       if (!existingAccount.passwordHash || !(await bcrypt.compare(input.linkExisting.password, existingAccount.passwordHash))) {
         throw new UnauthorizedError('The existing account password is incorrect.');
       }
@@ -100,6 +106,34 @@ export class AuthService implements IAuthService {
   }
 
   async authenticate(authorization: string | undefined): Promise<PublicAccount> {
+    const claims = this.verifySession(authorization);
+    const account = await this.database.findAccountById(claims.id);
+    if (!account) throw new UnauthorizedError('Session is invalid or expired.');
+    return { id: account.id, name: account.name, email: account.email };
+  }
+
+  async deleteAccount(authorization: string | undefined, input: DeleteAccountRequest): Promise<void> {
+    const claims = this.verifySession(authorization);
+    const account = await this.database.findAccountById(claims.id);
+    if (!account) return;
+    await this.consumeLimit('deletion', claims.id.toLowerCase(), 900);
+    if (input.reauthentication.type === 'password') {
+      if (!account.passwordHash || !(await bcrypt.compare(input.reauthentication.password, account.passwordHash))) {
+        throw new ReauthenticationError();
+      }
+      await this.database.deleteAccount(account.id, { type: 'password', passwordHash: account.passwordHash });
+      return;
+    }
+    const audience = this.getGoogleClientId();
+    let identity: VerifiedGoogleIdentity;
+    try { identity = await this.googleVerifier.verify(input.reauthentication.credential, audience); }
+    catch { throw new ReauthenticationError(); }
+    await this.database.deleteAccount(account.id, {
+      type: 'google', subject: identity.subject, challengeId: input.reauthentication.challengeId, nonceHash: hashNonce(identity.nonce),
+    });
+  }
+
+  private verifySession(authorization: string | undefined): PublicAccount {
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
     if (!match) throw new UnauthorizedError();
     const secret = this.signingSecret();
@@ -127,6 +161,16 @@ export class AuthService implements IAuthService {
     const secret = this.config.jwtSecret;
     if (!secret || secret.length < 32) throw new ServiceUnavailableError('Session signing is not configured.');
     return secret;
+  }
+
+  private async consumeLimit(scope: string, identifier: string, windowSeconds: number): Promise<void> {
+    const secret = this.config.rateLimitSecret;
+    if (!secret || secret.trim().length < 32 || secret === this.config.jwtSecret) throw new ServiceUnavailableError('Rate limiting is not configured.');
+    const keyHash = createHmac('sha256', secret).update(scope).update('\0').update(identifier).digest('hex');
+    let result: { allowed: boolean; retryAfter: number };
+    try { result = await this.database.consumeIdentifierLimit(keyHash, 5, windowSeconds); }
+    catch { throw new ServiceUnavailableError('Rate limiting is unavailable.'); }
+    if (!result.allowed) throw new RateLimitError(result.retryAfter);
   }
 }
 

@@ -62,4 +62,35 @@ describe('GoogleSignInButtonComponent', () => {
     expect(received).not.toHaveBeenCalled();
     expect(fixture.componentInstance.error()).toBe('Account changed. Retry Google sign-in.');
   });
+
+  it('offers retry when password login starts during button preparation', async () => {
+    let finishChallenge!: (challenge: { challengeId: string; nonce: string; expiresAt: string }) => void;
+    vi.mocked(api.createGoogleChallenge).mockReturnValueOnce(new Promise((resolve) => { finishChallenge = resolve; }));
+    vi.spyOn(api, 'login').mockRejectedValueOnce(new Error('Invalid credentials'));
+    const fixture = TestBed.createComponent(GoogleSignInButtonComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(finishChallenge).toBeDefined());
+    await expect(TestBed.inject(AuthStateService).login('a@example.test', 'wrong')).rejects.toThrow();
+    finishChallenge({ challengeId: 'challenge', nonce: 'nonce', expiresAt: '2026-11-22T13:00:00.000Z' });
+    await vi.waitFor(() => expect(fixture.componentInstance.error()).toBe('Account changed. Retry Google sign-in.'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Retry Google sign-in');
+    expect(renderButton).not.toHaveBeenCalled();
+  });
+
+  it('ignores a superseded Google callback after refreshing the challenge', async () => {
+    const fixture = TestBed.createComponent(GoogleSignInButtonComponent);
+    const received = vi.fn();
+    fixture.componentInstance.signedIn.subscribe(received);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(renderButton).toHaveBeenCalledOnce());
+    const oldCallback = credentialCallback;
+    vi.mocked(api.createGoogleChallenge).mockResolvedValueOnce({ challengeId: 'new-challenge', nonce: 'new-nonce', expiresAt: '2026-11-22T13:00:00.000Z' });
+    fixture.componentInstance.refresh();
+    await vi.waitFor(() => expect(renderButton).toHaveBeenCalledTimes(2));
+    oldCallback?.({ credential: 'stale' });
+    expect(received).not.toHaveBeenCalled();
+    credentialCallback?.({ credential: 'fresh' });
+    expect(received).toHaveBeenCalledWith({ credential: 'fresh', challengeId: 'new-challenge' });
+  });
 });

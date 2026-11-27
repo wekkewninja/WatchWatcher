@@ -6,7 +6,9 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'UNAUTHORIZED'
+  | 'REAUTHENTICATION_FAILED'
   | 'FORBIDDEN'
+  | 'RATE_LIMITED'
   | 'SERVICE_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
@@ -22,6 +24,13 @@ export interface SessionResponse {
   accountId: string;
   session: string;
   user: PublicAccount;
+}
+
+export interface DeleteAccountRequest {
+  confirmation: 'DELETE';
+  reauthentication:
+    | { type: 'password'; password: string }
+    | { type: 'google'; credential: string; challengeId: string };
 }
 
 export interface ProgressResponse extends StoredProgress {}

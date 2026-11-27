@@ -1,4 +1,6 @@
+import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { StorageRepository } from '../app/core/storage-repository.service';
 import { liveClient } from './client';
 
 describe('live API client sessions', () => {
@@ -28,6 +30,178 @@ describe('live API client sessions', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/login');
     expect(authenticatedHeaders.get('Authorization')).toBe('Bearer memory-only-token');
     expect(localStorage.getItem('watchwatcher-session')).toBeNull();
+  });
+
+  it.each([
+    { type: 'password' as const, password: 'fresh-password' },
+    { type: 'google' as const, credential: 'fresh-credential', challengeId: 'challenge' },
+  ])('deletes the authenticated account with fresh $type confirmation', async (reauthentication) => {
+    const accountId = `delete-${reauthentication.type}`;
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId, session: 'token-a', user: { id: accountId, name: 'Sailor', email: 'a@example.test' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    await liveClient.deleteAccount(accountId, reauthentication);
+    const init = fetchMock.mock.calls[1]?.[1];
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/account');
+    expect(init?.method).toBe('DELETE');
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer token-a');
+    expect(JSON.parse(String(init?.body))).toEqual({ confirmation: 'DELETE', reauthentication });
+    await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+  });
+
+  it('does not clear a newer session when a deletion response arrives late', async () => {
+    let finishDelete!: (response: Response) => void;
+    const session = (id: string) => new Response(JSON.stringify({ accountId: id, session: `token-${id}`, user: { id, name: 'Sailor', email: `${id}@example.test` } }), { status: 200 });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(session('late-delete-a'))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishDelete = resolve; }))
+      .mockResolvedValueOnce(session('b'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: 'b', name: 'Sailor', email: 'b@example.test' } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    const deletion = liveClient.deleteAccount('late-delete-a', { type: 'password', password: 'password' });
+    await liveClient.login({ email: 'b@example.test', password: 'password' });
+    finishDelete(new Response(null, { status: 204 }));
+    await deletion;
+    await liveClient.getCurrentUser();
+    expect(new Headers(fetchMock.mock.calls[3]?.[1]?.headers).get('Authorization')).toBe('Bearer token-b');
+  });
+
+  it.each([false, true])('clears the deleted token while a newer login is pending (login succeeds: %s)', async (succeeds) => {
+    const accountId = `pending-login-${succeeds}`;
+    let finishDelete!: (response: Response) => void;
+    let finishLogin!: (response: Response) => void;
+    const session = (id: string) => new Response(JSON.stringify({ accountId: id, session: `token-${id}`, user: { id, name: 'Sailor', email: `${id}@example.test` } }), { status: 200 });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(session(accountId))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishDelete = resolve; }))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishLogin = resolve; }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: 'b', name: 'Sailor', email: 'b@example.test' } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    const deletion = liveClient.deleteAccount(accountId, { type: 'password', password: 'password' });
+    const login = liveClient.login({ email: 'b@example.test', password: 'password' });
+    finishDelete(new Response(null, { status: 204 }));
+    await deletion;
+    await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+    finishLogin(succeeds ? session('b') : new Response(JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials.' } }), { status: 401 }));
+    if (succeeds) {
+      await expect(login).resolves.toMatchObject({ id: 'b' });
+      await liveClient.getCurrentUser();
+      expect(new Headers(fetchMock.mock.calls[3]?.[1]?.headers).get('Authorization')).toBe('Bearer token-b');
+    } else {
+      await expect(login).rejects.toThrow('Invalid credentials.');
+      await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+    }
+  });
+
+  it.each(['before', 'after'])('rejects a same-account session completed %s deletion', async (timing) => {
+    const accountId = `same-account-${timing}`;
+    let finishDelete!: (response: Response) => void;
+    let finishLogin!: (response: Response) => void;
+    const session = (token: string) => new Response(JSON.stringify({ accountId, session: token, user: { id: accountId, name: 'Sailor', email: 'a@example.test' } }), { status: 200 });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(session('old-token'))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishDelete = resolve; }))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishLogin = resolve; })));
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    const deleting = liveClient.deleteAccount(accountId, { type: 'password', password: 'password' });
+    const login = liveClient.login({ email: 'a@example.test', password: 'password' });
+    if (timing === 'before') {
+      finishLogin(session('new-token'));
+      await login;
+    }
+    finishDelete(new Response(null, { status: 204 }));
+    await deleting;
+    if (timing === 'after') {
+      finishLogin(session('new-token'));
+      await expect(login).rejects.toThrow('deleted');
+    }
+    await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+  });
+
+  it.each([false, true])('clears a refreshed deleted session without cancelling another account login (succeeds: %s)', async (succeeds) => {
+    const accountId = `refreshed-${succeeds}`;
+    let finishDelete!: (response: Response) => void;
+    let finishLogin!: (response: Response) => void;
+    const session = (id: string, token: string) => new Response(JSON.stringify({ accountId: id, session: token, user: { id, name: 'Sailor', email: `${id}@example.test` } }), { status: 200 });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(session(accountId, 'old-token'))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishDelete = resolve; }))
+      .mockResolvedValueOnce(session(accountId, 'new-token'))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishLogin = resolve; })));
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    const deleting = liveClient.deleteAccount(accountId, { type: 'password', password: 'password' });
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    const login = liveClient.login({ email: 'b@example.test', password: 'password' });
+    finishDelete(new Response(null, { status: 204 }));
+    await deleting;
+    await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+    finishLogin(succeeds ? session('other', 'other-token') : new Response(JSON.stringify({ error: { message: 'Invalid credentials.' } }), { status: 401 }));
+    if (succeeds) await expect(login).resolves.toMatchObject({ id: 'other' });
+    else {
+      await expect(login).rejects.toThrow('Invalid credentials.');
+      await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+    }
+  });
+
+  it.each(['pending', 'done'])('rejects a session with a persisted %s deletion marker', async (marker) => {
+    const accountId = `persisted-${marker}`;
+    localStorage.setItem(`watchwatcher-deleted:${accountId}`, marker);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ accountId, session: 'token', user: { id: accountId, name: 'Sailor', email: 'a@example.test' } }), { status: 200 })));
+    try {
+      await expect(liveClient.login({ email: 'a@example.test', password: 'password' })).rejects.toThrow('deleted');
+    } finally {
+      localStorage.removeItem(`watchwatcher-deleted:${accountId}`);
+    }
+  });
+
+  it('does not accept a session when local deletion status cannot be checked', async () => {
+    vi.spyOn(StorageRepository.prototype, 'isAccountDeleted').mockRejectedValue(new Error('IndexedDB unavailable'));
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      accountId: 'unavailable', session: 'token', user: { id: 'unavailable', name: 'Sailor', email: 'a@example.test' },
+    }), { status: 200 })));
+    await expect(liveClient.login({ email: 'a@example.test', password: 'password' })).rejects.toThrow('Local account status is unavailable.');
+    await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+  });
+
+  it('rechecks confirmed deletions after an in-flight tombstone read', async () => {
+    const accountId = 'tombstone-read-race';
+    let finishDelete!: (response: Response) => void;
+    let finishRead!: (deleted: boolean) => void;
+    const session = new Response(JSON.stringify({ accountId, session: 'token', user: { id: accountId, name: 'Sailor', email: 'a@example.test' } }), { status: 200 });
+    vi.stubGlobal('indexedDB', {});
+    vi.spyOn(StorageRepository.prototype, 'isAccountDeleted').mockResolvedValueOnce(false)
+      .mockReturnValueOnce(new Promise<boolean>((resolve) => { finishRead = resolve; }));
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(session.clone())
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { finishDelete = resolve; }))
+      .mockResolvedValueOnce(session.clone()));
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    const deleting = liveClient.deleteAccount(accountId, { type: 'password', password: 'password' });
+    const login = liveClient.login({ email: 'a@example.test', password: 'password' });
+    await vi.waitFor(() => expect(finishRead).toBeDefined());
+    finishDelete(new Response(null, { status: 204 }));
+    await deleting;
+    finishRead(false);
+    await expect(login).rejects.toThrow('deleted');
+    await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
+  });
+
+  it.each([403, 401])('preserves the token only for deletion reauthentication failure (%s)', async (status) => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId: 'a', session: 'token-a', user: { id: 'a', name: 'Sailor', email: 'a@example.test' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: status === 403 ? 'REAUTHENTICATION_FAILED' : 'UNAUTHORIZED', message: 'Rejected' } }), { status }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: 'a', name: 'Sailor', email: 'a@example.test' } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await liveClient.login({ email: 'a@example.test', password: 'password' });
+    await expect(liveClient.deleteAccount('a', { type: 'password', password: 'wrong' })).rejects.toMatchObject({ status });
+    if (status === 403) {
+      await liveClient.getCurrentUser();
+      expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get('Authorization')).toBe('Bearer token-a');
+    } else await expect(liveClient.getCurrentUser()).rejects.toThrow('Sign in');
   });
 
   it('does not replace a newer session with an older sign-in response', async () => {

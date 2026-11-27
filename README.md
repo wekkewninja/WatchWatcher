@@ -16,7 +16,7 @@ Study and deterministic grading work locally. IndexedDB progress is namespaced b
 The default Node.js version is pinned to 22.22.3 in `.nvmrc`, the minimum required by the locked Angular toolchain. Supported runtimes are Node 22.22.3 or newer within the 22.x line and Node 26.x, with npm 10.x or 11.x. Node 20 and Node 23–25 are intentionally unsupported; `.npmrc` enables strict engine checks. To select the default with nvm or nvm-windows, run `nvm install 22.22.3` and `nvm use 22.22.3`.
 
 1. Install the supported Node.js/npm version, Azure Functions Core Tools v4, and Docker Compose.
-2. Copy `.env.example` to `.env`. The development-only PostgreSQL defaults match `local.settings.json`; if you change the password, update its `DATABASE_URL` too. For Google sign-in, also set `GOOGLE_CLIENT_ID` under `Values` in the ignored `services/watchwatcher-api/local.settings.json`; Functions does not load the root `.env` file automatically.
+2. Copy `.env.example` to `.env`. The development-only PostgreSQL defaults match `local.settings.json`; if you change the password, update its `DATABASE_URL` too. Under `Values` in the ignored `services/watchwatcher-api/local.settings.json`, set `RATE_LIMIT_SECRET` to a new random secret of at least 32 characters, distinct from `JWT_SECRET`. For Google sign-in, also set `GOOGLE_CLIENT_ID`. Functions does not load the root `.env` file automatically. Do not commit these settings.
 3. Install workspace packages from the lockfile: `npm ci`.
 4. Start local PostgreSQL and Azurite: `docker compose up -d postgres azurite`.
 5. Apply the API schema migration: `docker compose run --rm db-migrate`.

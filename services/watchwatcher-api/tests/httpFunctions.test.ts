@@ -1,11 +1,14 @@
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UnauthorizedError } from '../src/errors/errorTypes';
+import { RateLimitError, ReauthenticationError, UnauthorizedError } from '../src/errors/errorTypes';
+import { AuthService } from '../src/services/authService';
+import type { IDatabaseService } from '../src/services/interfaces/IDatabaseService';
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (request: HttpRequest, context: InvocationContext) => Promise<HttpResponseInit>>(),
   auth: {
     authenticate: vi.fn(),
+    deleteAccount: vi.fn(),
     register: vi.fn(),
     login: vi.fn(),
     loginWithGoogle: vi.fn(),
@@ -32,6 +35,7 @@ import '../src/functions/authLogin';
 import '../src/functions/authMe';
 import '../src/functions/authRegister';
 import '../src/functions/authSession';
+import '../src/functions/deleteAccount';
 import '../src/functions/evaluateAnswer';
 import '../src/functions/getProgress';
 import '../src/functions/health';
@@ -68,6 +72,54 @@ beforeEach(() => {
 });
 
 describe('HTTP function contracts', () => {
+  it('returns the same generic 429 and retry header for all limited operations without logging sensitive inputs', async () => {
+    const credentials = { email: 'synthetic@example.test', password: 'synthetic-password' };
+    const registration = { ...credentials, name: 'Synthetic' };
+    const deletion = { confirmation: 'DELETE', reauthentication: { type: 'password', password: credentials.password } };
+    mocks.auth.login.mockRejectedValueOnce(new RateLimitError(73)).mockRejectedValueOnce(new RateLimitError(73));
+    mocks.auth.register.mockRejectedValueOnce(new RateLimitError(73));
+    mocks.auth.deleteAccount.mockRejectedValueOnce(new RateLimitError(73));
+    for (const [name, body] of [['authLogin', credentials], ['authSession', credentials], ['authRegister', registration], ['deleteAccount', deletion]] as const) {
+      expect(await invoke(name, request(body, 'Bearer synthetic-token'))).toMatchObject({
+        status: 429, headers: { 'Retry-After': '73' },
+        jsonBody: { error: { code: 'RATE_LIMITED', message: 'Too many attempts. Please try again later.' } },
+      });
+    }
+    const logs = JSON.stringify([mocks.logger.info.mock.calls, mocks.logger.warn.mock.calls, mocks.logger.error.mock.calls], (_key, value: unknown) =>
+      value instanceof Error ? { ...value, message: value.message, stack: value.stack } : value);
+    for (const secret of [credentials.email, credentials.password, 'synthetic-token']) expect(logs).not.toContain(secret);
+  });
+
+  it('does not log database details when the limiter store fails', async () => {
+    const sensitiveDetail = 'synthetic-database-secret@example.test';
+    const database = { consumeIdentifierLimit: async () => { throw new Error(sensitiveDetail); } } as unknown as IDatabaseService;
+    const auth = new AuthService(database, {
+      environment: 'Production', databaseUrl: undefined, jwtSecret: 'synthetic-jwt-secret-at-least-32-characters',
+      rateLimitSecret: 'synthetic-limit-secret-at-least-32-characters', jwtIssuer: 'test', jwtAudience: 'test',
+      googleClientId: undefined, geminiApiKey: undefined, azureStorageAccount: undefined, azuriteConnectionString: undefined,
+    });
+    mocks.auth.login.mockImplementationOnce((input) => auth.login(input));
+    expect(await invoke('authLogin', request({ email: 'synthetic@example.test', password: 'synthetic-password' }))).toMatchObject({
+      status: 503, jsonBody: { error: { code: 'SERVICE_UNAVAILABLE', message: 'Rate limiting is unavailable.' } },
+    });
+    const logs = JSON.stringify([mocks.logger.info.mock.calls, mocks.logger.warn.mock.calls, mocks.logger.error.mock.calls], (_key, value: unknown) =>
+      value instanceof Error ? { ...value, message: value.message, stack: value.stack } : value);
+    for (const secret of [sensitiveDetail, 'synthetic@example.test', 'synthetic-password', 'synthetic-limit-secret']) expect(logs).not.toContain(secret);
+  });
+  it('validates account deletion and returns an empty 204 without logging credentials', async () => {
+    const body = { confirmation: 'DELETE', reauthentication: { type: 'password', password: 'secret-password' } };
+    expect(await invoke('deleteAccount', request(body, 'Bearer signed'))).toEqual({ status: 204 });
+    expect(mocks.auth.deleteAccount).toHaveBeenCalledWith('Bearer signed', body);
+    expect(JSON.stringify(mocks.logger.info.mock.calls)).not.toContain('secret-password');
+    expect(await invoke('deleteAccount', request({ ...body, confirmation: 'NO' }, 'Bearer signed'))).toMatchObject({ status: 422 });
+    mocks.auth.deleteAccount.mockRejectedValueOnce(new ReauthenticationError());
+    expect(await invoke('deleteAccount', request(body, 'Bearer signed'))).toMatchObject({ status: 403, jsonBody: { error: { code: 'REAUTHENTICATION_FAILED' } } });
+    mocks.auth.deleteAccount.mockRejectedValueOnce(new UnauthorizedError());
+    expect(await invoke('deleteAccount', request(body, 'Bearer invalid'))).toMatchObject({ status: 401, jsonBody: { error: { code: 'UNAUTHORIZED' } } });
+    expect(JSON.stringify(mocks.logger.warn.mock.calls)).not.toContain('secret-password');
+    mocks.auth.deleteAccount.mockRejectedValueOnce(new Error('database unavailable'));
+    expect(await invoke('deleteAccount', request(body, 'Bearer signed'))).toMatchObject({ status: 500 });
+  });
   it('registers health and reports healthy or degraded dependencies', async () => {
     expect(await invoke('health')).toMatchObject({ status: 200, jsonBody: { status: 'healthy', services: { database: true, blobStorage: true, gemini: true } } });
     mocks.database.healthCheck.mockResolvedValue(false);
@@ -171,6 +223,7 @@ describe('HTTP function contracts', () => {
   it('requires authentication before returning the OpenAPI contract', async () => {
     const response = await invoke('openapi', request({}, 'Bearer example'));
     expect(response).toMatchObject({ status: 200, jsonBody: { openapi: '3.0.3', info: { title: 'WatchWatcher API' } } });
+    expect(response.jsonBody).toMatchObject({ paths: { '/account': { delete: { security: [{ bearerAuth: [] }], responses: { '204': expect.any(Object), '401': expect.any(Object) } } } }, components: { schemas: { DeleteAccountRequest: expect.any(Object) } } });
     expect(mocks.auth.authenticate).toHaveBeenCalledWith('Bearer example');
     mocks.auth.authenticate.mockRejectedValue(new UnauthorizedError());
     expect(await invoke('openapi', request())).toMatchObject({ status: 401 });

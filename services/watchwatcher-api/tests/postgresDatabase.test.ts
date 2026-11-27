@@ -21,6 +21,15 @@ function databaseWithQuery(query: ReturnType<typeof vi.fn>) {
 }
 
 describe('PostgresDatabaseService exercise progress', () => {
+  it('passes only the hashed key and fixed quota to the atomic counter', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ allowed: false, retry_after: 37 }] });
+    const database = databaseWithQuery(query);
+    const key = 'a'.repeat(64);
+    await expect(database.consumeIdentifierLimit(key, 5, 900)).resolves.toEqual({ allowed: false, retryAfter: 37 });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT (key_hash) DO UPDATE'), [key, 5, 900]);
+    expect(query.mock.calls[0][0]).toContain('LEAST(identifier_rate_limits.attempt_count + 1, $2 + 1)');
+    expect(query.mock.calls[0][0]).toContain('clock_timestamp()');
+  });
   it('reads exercise attempts only from the requested account snapshot', async () => {
     const attempts = [{
       id: '32f63760-6b39-4f06-935e-430251d1b785',
@@ -65,12 +74,67 @@ describe('PostgresDatabaseService exercise progress', () => {
       ruleExerciseAttempts: attempts,
     }, 3);
 
-    expect(query.mock.calls[0]?.[0]).toContain('rule_exercise_attempts = EXCLUDED.rule_exercise_attempts');
+    expect(query.mock.calls[0]?.[0]).toContain('rule_exercise_attempts = $5::jsonb');
     expect(query.mock.calls[0]?.[1]).toEqual(['account-b', '{}', '[]', '["rule-5"]', JSON.stringify(attempts), 3]);
   });
 });
 
 describe('PostgresDatabaseService accounts and transactions', () => {
+  it('locks the account and deletes it with a matching password hash', async () => {
+    const query = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ password_hash: 'hash' }] }).mockResolvedValueOnce({}).mockResolvedValueOnce({});
+    const release = vi.fn();
+    const database = new PostgresDatabaseService(config);
+    (database as unknown as { pool: unknown }).pool = { connect: vi.fn().mockResolvedValue({ query, release }) };
+    await database.deleteAccount('account-1', { type: 'password', passwordHash: 'hash' });
+    expect(query.mock.calls.map((call) => call[0])).toEqual(['BEGIN', expect.stringContaining('FOR UPDATE'), 'DELETE FROM users WHERE id = $1', 'COMMIT']);
+    expect(query.mock.calls[2]?.[1]).toEqual(['account-1']);
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it('rolls back when password, linked subject, or challenge no longer matches', async () => {
+    const query = vi.fn();
+    const release = vi.fn();
+    const database = new PostgresDatabaseService(config);
+    (database as unknown as { pool: unknown }).pool = { connect: vi.fn().mockResolvedValue({ query, release }) };
+    query.mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ password_hash: 'changed' }] }).mockResolvedValueOnce({});
+    await expect(database.deleteAccount('account-1', { type: 'password', passwordHash: 'old' })).rejects.toMatchObject({ statusCode: 403, code: 'REAUTHENTICATION_FAILED' });
+    expect(query.mock.calls.at(-1)?.[0]).toBe('ROLLBACK');
+    query.mockReset().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ password_hash: null }] }).mockResolvedValueOnce({ rowCount: 0 }).mockResolvedValueOnce({});
+    const google = { type: 'google' as const, subject: 'other', challengeId: 'challenge', nonceHash: 'hash' };
+    await expect(database.deleteAccount('account-1', google)).rejects.toMatchObject({ statusCode: 403, code: 'REAUTHENTICATION_FAILED' });
+    expect(query.mock.calls.at(-1)?.[0]).toBe('ROLLBACK');
+    query.mockReset().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ password_hash: null }] }).mockResolvedValueOnce({ rowCount: 1 }).mockResolvedValueOnce({ rowCount: 0 }).mockResolvedValueOnce({});
+    await expect(database.deleteAccount('account-1', google)).rejects.toMatchObject({ statusCode: 403, code: 'REAUTHENTICATION_FAILED' });
+    expect(query.mock.calls[3]?.[0]).toContain('DELETE FROM google_auth_challenges');
+    expect(query.mock.calls.at(-1)?.[0]).toBe('ROLLBACK');
+    expect(release).toHaveBeenCalledTimes(3);
+  });
+
+  it('consumes a valid Google challenge in the deletion transaction and handles an absent account', async () => {
+    const query = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ password_hash: null }] }).mockResolvedValueOnce({ rowCount: 1 }).mockResolvedValueOnce({ rowCount: 1 }).mockResolvedValueOnce({}).mockResolvedValueOnce({});
+    const release = vi.fn();
+    const database = new PostgresDatabaseService(config);
+    (database as unknown as { pool: unknown }).pool = { connect: vi.fn().mockResolvedValue({ query, release }) };
+    await database.deleteAccount('account-1', { type: 'google', subject: 'subject', challengeId: 'challenge', nonceHash: 'hash' });
+    expect(query.mock.calls[2]?.[1]).toEqual(['account-1', 'subject']);
+    expect(query.mock.calls[3]?.[1]).toEqual(['challenge', 'hash']);
+    expect(query.mock.calls[3]?.[0]).toContain('expires_at > clock_timestamp()');
+    expect(query.mock.calls[4]?.[0]).toBe('DELETE FROM users WHERE id = $1');
+    expect(query.mock.calls[5]?.[0]).toBe('COMMIT');
+    query.mockReset().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 0, rows: [] }).mockResolvedValueOnce({});
+    await database.deleteAccount('account-1', { type: 'password', passwordHash: 'hash' });
+    expect(query.mock.calls.map((call) => call[0])).toEqual(['BEGIN', expect.stringContaining('FOR UPDATE'), 'COMMIT']);
+  });
+
+  it('rolls back and propagates database errors during deletion', async () => {
+    const query = vi.fn().mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('database unavailable')).mockResolvedValueOnce({});
+    const release = vi.fn();
+    const database = new PostgresDatabaseService(config);
+    (database as unknown as { pool: unknown }).pool = { connect: vi.fn().mockResolvedValue({ query, release }) };
+    await expect(database.deleteAccount('account-1', { type: 'password', passwordHash: 'hash' })).rejects.toThrow('database unavailable');
+    expect(query.mock.calls.at(-1)?.[0]).toBe('ROLLBACK');
+    expect(release).toHaveBeenCalledOnce();
+  });
   it('creates and looks up normalized password accounts', async () => {
     const account = { id: 'account-1', name: 'Sailor', email: 'sailor@example.com' };
     const query = vi.fn()

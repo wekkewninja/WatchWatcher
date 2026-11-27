@@ -5,7 +5,7 @@ export const credentialsSchema = z.object({ email: emailSchema, password: z.stri
 export const registerSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: emailSchema,
-  password: z.string().min(10).max(128),
+  password: z.string().min(10).max(128).refine((password) => new TextEncoder().encode(password).length <= 72, 'Password must be at most 72 UTF-8 bytes.'),
 }).strict();
 export const sessionSchema = credentialsSchema;
 export const googleSignInSchema = z.object({
@@ -15,6 +15,14 @@ export const googleSignInSchema = z.object({
     confirmed: z.literal(true),
     password: z.string().min(8).max(128),
   }).strict().optional(),
+}).strict();
+
+export const deleteAccountSchema = z.object({
+  confirmation: z.literal('DELETE'),
+  reauthentication: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('password'), password: z.string().min(1).max(128) }).strict(),
+    z.object({ type: z.literal('google'), credential: z.string().min(100).max(10000), challengeId: z.string().uuid() }).strict(),
+  ]),
 }).strict();
 
 export const progressSnapshotSchema = z.object({

@@ -59,6 +59,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly buttonHost = viewChild.required<ElementRef<HTMLElement>>('buttonHost');
   private challenge: GoogleAuthChallenge | null = null;
+  private preparation = 0;
 
   ngAfterViewInit(): void { void this.prepareButton(); }
 
@@ -66,12 +67,19 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
 
   private async prepareButton(): Promise<void> {
     const generation = this.auth.accountGeneration;
+    const preparation = ++this.preparation;
+    this.challenge = null;
     this.loading.set(true);
     this.error.set('');
     try {
       const clientId = await api.getGoogleClientId();
       const challenge = await api.createGoogleChallenge();
       const google = await this.loadGoogleIdentity();
+      if (this.destroyRef.destroyed || preparation !== this.preparation) return;
+      if (generation !== this.auth.accountGeneration) {
+        this.error.set('Account changed. Retry Google sign-in.');
+        return;
+      }
       this.challenge = challenge;
       const host = this.buttonHost().nativeElement;
       host.replaceChildren();
@@ -81,6 +89,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
         auto_select: false,
         callback: (response) => {
           if (this.destroyRef.destroyed) return;
+          if (preparation !== this.preparation) return;
           if (generation !== this.auth.accountGeneration) {
             this.challenge = null;
             this.error.set('Account changed. Retry Google sign-in.');
@@ -103,8 +112,8 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
         width: Math.max(200, Math.min(320, host.clientWidth || 320)),
       });
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Google sign-in is unavailable.');
-    } finally { this.loading.set(false); }
+      if (preparation === this.preparation && !this.destroyRef.destroyed) this.error.set(error instanceof Error ? error.message : 'Google sign-in is unavailable.');
+    } finally { if (preparation === this.preparation && !this.destroyRef.destroyed) this.loading.set(false); }
   }
 
   private async loadGoogleIdentity(): Promise<GoogleIdentityApi> {
