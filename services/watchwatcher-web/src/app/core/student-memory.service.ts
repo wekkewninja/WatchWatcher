@@ -82,14 +82,19 @@ export class StudentMemoryService {
 
   async loadAndMergeCloudProgress(): Promise<ProgressSnapshot> {
     const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
     let merged = emptyProgressSnapshot();
     try {
       if (getAuthenticatedAccountId() !== ownerId || ownerId === 'guest') throw new Error('No matching account session.');
       const remote = await api.getProgress();
-      merged = await this.storage.updateProgress(ownerId, (local) => mergeProgressSnapshots(local, remote));
+      merged = await this.storage.updateProgress(ownerId, (local) => {
+        this.ensureOwner(ownerId, generation);
+        return mergeProgressSnapshots(local, remote);
+      });
       if (hasProgressNotOnServer(merged, remote)) {
         try {
-          if (this.ownerId() === ownerId) await api.syncProgress(merged);
+          this.ensureOwner(ownerId, generation);
+          await api.syncProgress(merged);
         } catch { /* Keep the merged local snapshot for the next sync attempt. */ }
       }
     } catch { merged = await this.storage.loadProgress(ownerId) ?? emptyProgressSnapshot(); }
@@ -98,16 +103,22 @@ export class StudentMemoryService {
 
   async syncProgress(): Promise<{ syncedAt: string; revision: number }> {
     const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
     if (ownerId === 'guest' || getAuthenticatedAccountId() !== ownerId) throw new Error("Sign in to synchronize this account's progress.");
     const remote = await api.getProgress();
-    const merged = await this.storage.updateProgress(ownerId, (local) => mergeProgressSnapshots(local, remote));
-    if (this.ownerId() !== ownerId) throw new Error('Account changed while syncing progress. The local snapshot was preserved.');
+    const merged = await this.storage.updateProgress(ownerId, (local) => {
+      this.ensureOwner(ownerId, generation);
+      return mergeProgressSnapshots(local, remote);
+    });
+    this.ensureOwner(ownerId, generation);
     return api.syncProgress(merged);
   }
 
   async recordEvaluation(topicId: string, evaluation: EvaluationResult, initialMastery: number): Promise<void> {
     const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
     await this.storage.updateProgress(ownerId, (current) => {
+      this.ensureOwner(ownerId, generation);
       const progress = { ...emptyProgressSnapshot(), ...current };
       const previous = progress.topicMastery[topicId] ?? initialMastery;
       progress.topicMastery[topicId] = Math.round(previous * 0.7 + evaluation.score * 100 * 0.3);
@@ -121,6 +132,7 @@ export class StudentMemoryService {
 
   async recordRuleExerciseAttempt(ruleId: string, selectedOptionId: string, correctOptionId: string): Promise<ProgressSnapshot> {
     const ownerId = this.ownerId();
+    const generation = this.auth.accountGeneration;
     const correct = selectedOptionId === correctOptionId;
     const attempt: RuleExerciseAttempt = {
       id: crypto.randomUUID(),
@@ -130,6 +142,7 @@ export class StudentMemoryService {
       attemptedAt: new Date().toISOString(),
     };
     const progress = await this.storage.updateProgress(ownerId, (current) => {
+      this.ensureOwner(ownerId, generation);
       const updated = { ...emptyProgressSnapshot(), ...current };
       updated.ruleExerciseAttempts.push(attempt);
       if (correct) updated.drillQueue = updated.drillQueue.filter((topicId) => topicId !== ruleId);
@@ -139,12 +152,16 @@ export class StudentMemoryService {
       }
       return updated;
     });
-    if (this.ownerId() !== ownerId) throw new Error('Account changed while recording progress. Reload before continuing.');
+    this.ensureOwner(ownerId, generation);
     if (this.ownerId() === ownerId && getAuthenticatedAccountId() === ownerId) void api.syncProgress(progress).catch(() => undefined);
     return progress;
   }
 
   private ownerId(): string {
     return this.auth.user()?.id ?? 'guest';
+  }
+
+  private ensureOwner(ownerId: string, generation: number): void {
+    if (this.ownerId() !== ownerId || this.auth.accountGeneration !== generation) throw new Error('Account changed while recording progress. Reload before continuing.');
   }
 }

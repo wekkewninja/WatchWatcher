@@ -3,11 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RateLimitError, ReauthenticationError, UnauthorizedError } from '../src/errors/errorTypes';
 import { AuthService } from '../src/services/authService';
 import type { IDatabaseService } from '../src/services/interfaces/IDatabaseService';
+import { readFileSync } from 'node:fs';
+import { parse } from 'yaml';
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (request: HttpRequest, context: InvocationContext) => Promise<HttpResponseInit>>(),
   auth: {
     authenticate: vi.fn(),
+    consumeEvaluationLimit: vi.fn(),
+    logout: vi.fn(),
     deleteAccount: vi.fn(),
     register: vi.fn(),
     login: vi.fn(),
@@ -36,6 +40,7 @@ import '../src/functions/authMe';
 import '../src/functions/authRegister';
 import '../src/functions/authSession';
 import '../src/functions/deleteAccount';
+import '../src/functions/logout';
 import '../src/functions/evaluateAnswer';
 import '../src/functions/getProgress';
 import '../src/functions/health';
@@ -72,6 +77,33 @@ beforeEach(() => {
 });
 
 describe('HTTP function contracts', () => {
+  it('does not log or return unexpected credential-bearing errors on authentication and deletion routes', async () => {
+    const password = 'synthetic-password';
+    const hash = 'scrypt$v=1$synthetic-full-hash';
+    const detail = `${password} ${hash} synthetic-secret`;
+    vi.stubEnv('AZURE_FUNCTIONS_ENVIRONMENT', 'Development');
+    try {
+      for (const [name, path, body] of [
+        ['authLogin', '/api/auth/login', { email: 'sailor@example.com', password }],
+        ['deleteAccount', '/api/account', { confirmation: 'DELETE', reauthentication: { type: 'password', password } }],
+      ] as const) {
+        if (name === 'authLogin') mocks.auth.login.mockRejectedValueOnce(new Error(detail));
+        else mocks.auth.deleteAccount.mockRejectedValueOnce(new Error(detail));
+        const input = { ...request(body, 'Bearer synthetic-token'), url: `http://localhost${path}` } as HttpRequest;
+        expect(await invoke(name, input)).toMatchObject({ status: 500, jsonBody: { error: { message: 'An internal error occurred' } } });
+      }
+      const logs = JSON.stringify([mocks.logger.info.mock.calls, mocks.logger.warn.mock.calls, mocks.logger.error.mock.calls], (_key, value: unknown) =>
+        value instanceof Error ? { ...value, message: value.message, stack: value.stack } : value);
+      for (const secret of [password, hash, 'synthetic-secret', 'synthetic-token']) expect(logs).not.toContain(secret);
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it('returns an empty no-store response for logout and never logs the bearer', async () => {
+    expect(await invoke('logout', request({}, 'Bearer synthetic-token'))).toEqual({ status: 204, headers: { 'Cache-Control': 'no-store' } });
+    expect(mocks.auth.logout).toHaveBeenCalledWith('Bearer synthetic-token');
+    mocks.auth.logout.mockRejectedValueOnce(new UnauthorizedError());
+    expect(await invoke('logout', request({}, 'Bearer synthetic-token'))).toMatchObject({ status: 401 });
+    expect(JSON.stringify([mocks.logger.info.mock.calls, mocks.logger.warn.mock.calls])).not.toContain('synthetic-token');
+  });
   it('returns the same generic 429 and retry header for all limited operations without logging sensitive inputs', async () => {
     const credentials = { email: 'synthetic@example.test', password: 'synthetic-password' };
     const registration = { ...credentials, name: 'Synthetic' };
@@ -209,21 +241,74 @@ describe('HTTP function contracts', () => {
     expect(await invoke('authGoogle', request(body))).toMatchObject({ status: 409, jsonBody: { error: { code: 'CONFLICT', details: { reason: 'GOOGLE_ACCOUNT_LINK_REQUIRED' } } } });
   });
 
-  it('uses online evaluation when available and deterministic fallback on failure', async () => {
-    const body = { topicId: 'rule-5', context: 'Lookout', answer: 'Maintain a lookout.' };
+  it('requires explicit consent and never falls back to free-text keyword grading', async () => {
+    const body = { topicId: 'rule-5', context: 'Lookout', answer: 'Maintain a lookout.', onlineConsent: true };
+    const { onlineConsent: _consent, ...legacy } = body;
+    expect(await invoke('evaluateAnswer', request(legacy))).toMatchObject({ status: 422 });
+    expect(await invoke('evaluateAnswer', request({ ...body, onlineConsent: false }))).toMatchObject({ status: 422 });
+    expect(await invoke('evaluateAnswer', request({ ...body, accountId: 'other', progress: {} }))).toMatchObject({ status: 422 });
+    expect(mocks.auth.consumeEvaluationLimit).not.toHaveBeenCalled();
+    expect(mocks.evaluation.evaluate).not.toHaveBeenCalled();
     mocks.evaluation.evaluate.mockResolvedValue({ score: 0.9, source: 'online' });
     expect(await invoke('evaluateAnswer', request(body))).toMatchObject({ status: 200, jsonBody: { source: 'online' } });
+    expect(mocks.evaluation.evaluate).toHaveBeenCalledWith(body);
+    expect(mocks.auth.consumeEvaluationLimit).toHaveBeenCalledWith(account.id);
     mocks.evaluation.evaluate.mockRejectedValue(new Error('unavailable'));
-    mocks.deterministicEvaluation.evaluate.mockResolvedValue({ score: 0.7, source: 'offline' });
-    expect(await invoke('evaluateAnswer', request(body))).toMatchObject({ status: 200, jsonBody: { source: 'offline' } });
-    expect(mocks.deterministicEvaluation.evaluate).toHaveBeenCalledWith(body);
+    expect(await invoke('evaluateAnswer', request(body))).toMatchObject({ status: 503 });
+    expect(mocks.deterministicEvaluation.evaluate).not.toHaveBeenCalled();
+    const logs = JSON.stringify([mocks.logger.info.mock.calls, mocks.logger.warn.mock.calls, mocks.logger.error.mock.calls]);
+    expect(logs).not.toContain(body.answer);
+    expect(logs).not.toContain('onlineConsent');
     expect(await invoke('evaluateAnswer', request({ ...body, answer: '' }))).toMatchObject({ status: 422 });
+  });
+
+  it('blocks provider calls when authentication or the evaluation quota fails', async () => {
+    const body = { topicId: 'rule-5', context: 'Lookout', answer: 'Synthetic answer', onlineConsent: true };
+    mocks.auth.authenticate.mockRejectedValueOnce(new UnauthorizedError());
+    expect(await invoke('evaluateAnswer', request(body))).toMatchObject({ status: 401 });
+    expect(mocks.auth.consumeEvaluationLimit).not.toHaveBeenCalled();
+    mocks.auth.consumeEvaluationLimit.mockRejectedValueOnce(new RateLimitError(60));
+    expect(await invoke('evaluateAnswer', request(body))).toMatchObject({ status: 429, headers: { 'Retry-After': '60' } });
+    mocks.auth.consumeEvaluationLimit.mockRejectedValueOnce(new Error('synthetic private detail'));
+    expect(await invoke('evaluateAnswer', request(body))).toMatchObject({ status: 500 });
+    expect(mocks.evaluation.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('hides evaluation limiter database failures and identifiers from logs', async () => {
+    const privateDetail = 'synthetic-evaluation-database-secret';
+    const database = { consumeIdentifierLimit: async () => { throw new Error(privateDetail); } } as unknown as IDatabaseService;
+    const auth = new AuthService(database, {
+      environment: 'Production', databaseUrl: undefined, jwtSecret: 'synthetic-jwt-secret-at-least-32-characters',
+      rateLimitSecret: 'synthetic-limit-secret-at-least-32-characters', jwtIssuer: 'test', jwtAudience: 'test',
+      googleClientId: undefined, geminiApiKey: undefined, azureStorageAccount: undefined, azuriteConnectionString: undefined,
+    });
+    mocks.auth.consumeEvaluationLimit.mockImplementationOnce((id) => auth.consumeEvaluationLimit(id));
+    expect(await invoke('evaluateAnswer', request({ topicId: 'rule-5', context: 'Synthetic context', answer: 'Synthetic answer', onlineConsent: true }, 'Bearer synthetic-token')))
+      .toMatchObject({ status: 503, jsonBody: { error: { message: 'Rate limiting is unavailable.' } } });
+    expect(mocks.evaluation.evaluate).not.toHaveBeenCalled();
+    const logs = JSON.stringify([mocks.logger.info.mock.calls, mocks.logger.warn.mock.calls, mocks.logger.error.mock.calls], (_key, value: unknown) =>
+      value instanceof Error ? { ...value, message: value.message, stack: value.stack } : value);
+    for (const secret of [privateDetail, account.id, account.email, 'synthetic-token', 'Synthetic answer', 'synthetic-limit-secret']) expect(logs).not.toContain(secret);
   });
 
   it('requires authentication before returning the OpenAPI contract', async () => {
     const response = await invoke('openapi', request({}, 'Bearer example'));
     expect(response).toMatchObject({ status: 200, jsonBody: { openapi: '3.0.3', info: { title: 'WatchWatcher API' } } });
     expect(response.jsonBody).toMatchObject({ paths: { '/account': { delete: { security: [{ bearerAuth: [] }], responses: { '204': expect.any(Object), '401': expect.any(Object) } } } }, components: { schemas: { DeleteAccountRequest: expect.any(Object) } } });
+    expect(response.jsonBody).toMatchObject({ paths: { '/exam/evaluate': { post: { requestBody: { content: { 'application/json': { schema: { required: ['topicId', 'context', 'answer', 'onlineConsent'], properties: { onlineConsent: { enum: [true] } } } } } } } } } });
+    const generated = response.jsonBody as { components: { schemas: Record<string, unknown> }; paths: Record<string, { post: { responses: Record<string, unknown>; requestBody: unknown } }> };
+    const checkedIn = parse(readFileSync(new URL('../openapi.yaml', import.meta.url), 'utf8')) as typeof generated;
+    for (const name of ['Password', 'CredentialsRequest', 'RegisterRequest', 'GoogleSignInRequest', 'DeleteAccountRequest']) {
+      expect(checkedIn.components.schemas[name]).toEqual(generated.components.schemas[name]);
+    }
+    for (const path of ['/auth/register', '/auth/login', '/auth/session']) {
+      expect(checkedIn.paths[path].post.requestBody).toEqual(generated.paths[path].post.requestBody);
+    }
+    const generatedResponses = generated.paths['/exam/evaluate'].post.responses;
+    const checkedInResponses = checkedIn.paths['/exam/evaluate'].post.responses;
+    expect(checkedInResponses['200']).toEqual(generatedResponses['200']);
+    expect(checkedInResponses['429']).toEqual(generatedResponses['429']);
+    expect(generatedResponses['200']).toMatchObject({ content: { 'application/json': { schema: { required: expect.arrayContaining(['criticalFailure', 'criticalFailureReason']) } } } });
     expect(mocks.auth.authenticate).toHaveBeenCalledWith('Bearer example');
     mocks.auth.authenticate.mockRejectedValue(new UnauthorizedError());
     expect(await invoke('openapi', request())).toMatchObject({ status: 401 });

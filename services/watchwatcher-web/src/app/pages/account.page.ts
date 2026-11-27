@@ -10,6 +10,7 @@ import { AuthStateService } from '../core/auth-state.service';
 import type { Learner } from '../domain-types';
 import { GoogleSignInButtonComponent, type GoogleCredentialEvent } from '../shared/google-sign-in-button.component';
 import { responseStatus } from './auth-error';
+import { isPasswordWithinLimits, PASSWORD_LIMIT_MESSAGE } from '../../../../shared/schemas/password';
 
 @Component({
   standalone: true,
@@ -27,6 +28,7 @@ import { responseStatus } from './auth-error';
           <label><input type="checkbox" name="confirmed" [(ngModel)]="confirmed"> I understand this deletion is irreversible.</label>
           <mat-form-field appearance="outline"><mat-label>Type DELETE to confirm</mat-label><input matInput name="confirmation" [(ngModel)]="confirmation" autocomplete="off"></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Current password</mat-label><input matInput type="password" name="password" [(ngModel)]="password" autocomplete="current-password"></mat-form-field>
+          @if (!passwordWithinLimits(password)) { <p class="inline-error" role="alert">{{ passwordLimitMessage }}</p> }
           @if (error()) { <p class="inline-error" role="alert">{{ error() }}</p> }
           <button mat-flat-button type="submit" [disabled]="busy() || !confirmed || confirmation !== 'DELETE' || !password">Delete account with password</button>
         </form>
@@ -39,6 +41,8 @@ import { responseStatus } from './auth-error';
   `,
 })
 export class AccountPage {
+  readonly passwordWithinLimits = isPasswordWithinLimits;
+  readonly passwordLimitMessage = PASSWORD_LIMIT_MESSAGE;
   @ViewChild(GoogleSignInButtonComponent) private googleButton?: GoogleSignInButtonComponent;
   readonly account: Learner | null;
   readonly generation: number;
@@ -55,6 +59,7 @@ export class AccountPage {
 
   async submitPassword(): Promise<void> {
     if (!this.password) return;
+    if (!isPasswordWithinLimits(this.password)) { this.error.set(PASSWORD_LIMIT_MESSAGE); return; }
     await this.delete({ type: 'password', password: this.password });
     this.password = '';
   }
@@ -78,7 +83,7 @@ export class AccountPage {
         : status === 401 ? 'Your session has expired. Sign in again to continue.'
         : status === 429 ? 'Too many attempts. Wait a moment and try again.'
         : error instanceof TypeError ? 'The deletion outcome is unconfirmed. Check your connection and retry.'
-        : status !== undefined && status >= 500 ? 'Account deletion is temporarily unavailable. Please try again.'
+        : status !== undefined && status >= 500 ? 'The deletion outcome is unconfirmed. Server data may still exist; check the deletion notice.'
         : error instanceof Error ? error.message : 'Account deletion failed. Please try again.');
     } finally { this.busy.set(false); }
   }

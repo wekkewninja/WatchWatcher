@@ -111,6 +111,28 @@ describe('StorageRepository', () => {
     }
   });
 
+  it('keeps an unresolved local-only cleanup retryable while an old tab blocks IndexedDB', async () => {
+    const oldDatabase = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('watchwatcher-local', 2);
+      request.onupgradeneeded = () => request.result.createObjectStore('progress');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    localStorage.setItem('watchwatcher-signed-out', 'true');
+    localStorage.setItem('watchwatcher-deletion-intent:blocked-local:one', 'pending');
+    const auth = new AuthStateService();
+    try {
+      await auth.eraseUnresolvedLocalData('blocked-local');
+      expect(auth.localCleanupStates()['blocked-local']).toBe('pending');
+      expect(auth.localCleanupErrors()['blocked-local']).toContain('could not be completed');
+      expect(auth.unresolvedDeletions()).toEqual(['blocked-local']);
+      oldDatabase.close();
+      await auth.eraseUnresolvedLocalData('blocked-local');
+      expect(auth.localCleanupStates()['blocked-local']).toBe('done');
+      expect(auth.unresolvedDeletions()).toEqual(['blocked-local']);
+    } finally { oldDatabase.close(); }
+  });
+
   it.each(['save', 'update'])('rejects an in-flight %s whose transaction starts after deletion', async (method) => {
     const repository = new StorageRepository();
     const snapshot = { topicMastery: { topic: 50 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
@@ -126,6 +148,27 @@ describe('StorageRepository', () => {
     release(delayedDatabase);
     await rejected;
     await expect(repository.loadProgress('account-a')).resolves.toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('fences delayed writes after local-only cleanup', async () => {
+    const repository = new StorageRepository();
+    const snapshot = { topicMastery: { topic: 50 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] };
+    await repository.saveProgress('local-only-race', snapshot);
+    const internals = repository as unknown as { openDatabase(): Promise<IDBDatabase> };
+    const open = internals.openDatabase.bind(repository);
+    const delayedDatabase = await open();
+    let release!: (db: IDBDatabase) => void;
+    vi.spyOn(internals, 'openDatabase').mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    const write = repository.saveProgress('local-only-race', snapshot);
+    const rejected = expect(write).rejects.toThrow('deleted account');
+    localStorage.setItem('watchwatcher-local-cleanup:local-only-race', 'pending');
+    await repository.deleteAccountProgress('local-only-race', true);
+    release(delayedDatabase);
+    await rejected;
+    localStorage.removeItem('watchwatcher-local-cleanup:local-only-race');
+    await expect(repository.saveProgress('local-only-race', snapshot)).rejects.toThrow('deleted account');
+    await expect(repository.loadProgress('local-only-race')).resolves.toBeNull();
     vi.restoreAllMocks();
   });
 

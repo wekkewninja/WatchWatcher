@@ -39,10 +39,16 @@ export interface EvaluationRequest {
   answer: string;
 }
 
+export interface OnlineEvaluationRequest extends EvaluationRequest {
+  onlineConsent: true;
+}
+
 export interface EvaluationResult {
   score: number;
   feedback: string;
   misconceptionTag: string | null;
   followUpDrill: string;
   source: 'online' | 'offline';
+  criticalFailure?: boolean;
+  criticalFailureReason?: string | null;
 }

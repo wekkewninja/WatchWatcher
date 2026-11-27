@@ -12,6 +12,10 @@ export function deletionMarkerKey(ownerId: string): string {
   return `${deletionPrefix}${ownerId}`;
 }
 
+export function localCleanupKey(ownerId: string): string {
+  return `watchwatcher-local-cleanup:${ownerId}`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class StorageRepository {
   async loadProgress(ownerId: string): Promise<ProgressSnapshot | null> {
@@ -23,7 +27,7 @@ export class StorageRepository {
       const request = store.get(this.progressKey(ownerId));
       transaction.oncomplete = () => {
         try {
-          const stored = tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId)) ? undefined : request.result as ProgressSnapshot | undefined;
+          const stored = tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId)) || localStorage.getItem(localCleanupKey(ownerId)) ? undefined : request.result as ProgressSnapshot | undefined;
           resolve(stored ? { ...stored, ruleExerciseAttempts: stored.ruleExerciseAttempts ?? [] } : null);
         } catch (error) { reject(error); }
         finally { db.close(); }
@@ -47,7 +51,7 @@ export class StorageRepository {
       const tombstone = store.get(this.tombstoneKey(ownerId));
       tombstone.onsuccess = () => {
         try {
-          if (tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId))) throw new Error('Progress for this deleted account cannot be saved.');
+          if (tombstone.result || localStorage.getItem(deletionMarkerKey(ownerId)) || localStorage.getItem(localCleanupKey(ownerId))) throw new Error('Progress for this deleted account cannot be saved.');
           const request = store.get(key);
           request.onsuccess = () => {
             try {
@@ -77,13 +81,16 @@ export class StorageRepository {
     });
   }
 
-  async deleteAccountProgress(ownerId: string): Promise<void> {
+  async deleteAccountProgress(ownerId: string, localOnly = false): Promise<void> {
     if (!ownerId || ownerId === guestKey) throw new Error('An account owner is required.');
     const db = await this.openDatabase();
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(storeName, 'readwrite');
       const store = transaction.objectStore(storeName);
-      store.put(true, this.tombstoneKey(ownerId));
+      const tombstone = store.get(this.tombstoneKey(ownerId));
+      tombstone.onsuccess = () => {
+        store.put(tombstone.result === true || !localOnly ? true : 'local-only', this.tombstoneKey(ownerId));
+      };
       store.delete(this.progressKey(ownerId));
       transaction.oncomplete = () => { db.close(); resolve(); };
       transaction.onabort = () => { db.close(); reject(transaction.error ?? new Error('Local deletion failed.')); };

@@ -1,6 +1,6 @@
-import type { EvaluationRequest, EvaluationResult } from '../../../../shared/types/entities';
+import type { OnlineEvaluationRequest, EvaluationResult } from '../../../../shared/types/entities';
 
 export interface IEvaluationService {
-  evaluate(input: EvaluationRequest): Promise<EvaluationResult>;
+  evaluate(input: OnlineEvaluationRequest): Promise<EvaluationResult>;
   healthCheck(): Promise<boolean>;
 }

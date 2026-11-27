@@ -5,8 +5,10 @@ import { routes } from './app.routes';
 describe('application routes', () => {
   it('keeps sign-in routes public and protects account study routes', () => {
     expect(routes.filter((route) => route.canActivate?.includes(authGuard)).map((route) => route.path)).toEqual([
-      'account', '', 'examiner', 'exam', 'syllabus', 'learn/:contentId', 'colregs/:ruleId', 'colregs',
+      'account', '', 'exam', 'syllabus', 'learn/:contentId',
     ]);
+    expect(routes.filter((route) => route.path === 'examiner' || route.path === 'colregs' || route.path === 'colregs/:ruleId')
+      .every((route) => !route.canActivate?.includes(authGuard))).toBe(true);
     expect(routes.filter((route) => route.path === 'login' || route.path === 'create-account')
       .every((route) => !route.canActivate?.includes(authGuard))).toBe(true);
     expect(routes.find((route) => route.path === '**')?.redirectTo).toBe('');

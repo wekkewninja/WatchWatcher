@@ -22,20 +22,66 @@
     </nav>
   }
 </header>
+@if (auth.cloudAuth() === 'local') {
+  <div role="alert" style="padding: 12px 20px;">
+    Cloud session expired or unavailable. Progress remains on this device for {{ auth.user()?.name }}.
+    <a mat-button routerLink="/login">Sign in to sync</a>
+  </div>
+}
+@if (auth.logoutWarning()) {
+  <div role="alert" style="padding: 12px 20px;">
+    A previous session was cleared from this device, but server sign-out could not be confirmed. It may remain usable for up to 20 minutes after the failed sign-out.
+    @if (auth.logoutWarningStorageUnavailable()) { Browser storage is unavailable; this warning may not survive a reload. }
+  </div>
+}
+@if (auth.deletionNoticeUnavailable()) {
+  <div role="alert" style="padding: 12px 20px;">Browser storage is unavailable. Deletion notices and local cleanup status cannot be checked; enable storage and reload.</div>
+}
+@for (ownerId of auth.deletionVerificationUnavailable(); track ownerId) {
+  <div role="alert" style="padding: 12px 20px;">Deletion was confirmed for account {{ ownerId }}, but this browser could not persist that verification or erase its local data. The unresolved notice is retained where possible; enable storage and retry before closing this tab.</div>
+}
 @for (ownerId of auth.unresolvedDeletions(); track ownerId) {
   <div role="alert" style="padding: 12px 20px;">
-    The deletion outcome for account {{ ownerId }} is unconfirmed. Local data has been kept.
-    @if (auth.user()?.id === ownerId) {
-      <a mat-button routerLink="/account">Retry account deletion</a>
+    The deletion outcome for account {{ ownerId }} is unconfirmed. Server data could still exist. Other devices must be handled separately; offline devices cannot be erased remotely.
+    @if (auth.deletionRetryOwner() === ownerId) {
+      <button mat-button type="button" (click)="auth.confirmUnresolvedDeletion(ownerId)">Check deletion receipt</button>
+      This check is available briefly in this tab only and is lost on reload or sign-out.
+      @if (auth.deletionRetryError(); as error) { <p role="alert">{{ error }}</p> }
     } @else {
+      Receipt confirmation is unavailable after reload, expiry, or sign-out.
+    }
+    @if (auth.localCleanupStates()[ownerId] === 'done') {
+      This account's progress was erased from this browser profile. If the account still exists, sign in using a separate browser profile to recover access or retry deletion; server data may return and an outstanding deletion could still complete.
+    } @else if (auth.localCleanupStates()[ownerId] === 'pending') {
+      Local cleanup is not confirmed complete. Close other WatchWatcher tabs and retry.
+    } @else {
+      Local data has been kept.
+    }
+    @if (auth.user()?.id === ownerId && !auth.localCleanupStates()[ownerId]) {
+      <a mat-button routerLink="/account">Retry account deletion</a>
+    } @else if (!auth.localCleanupStates()[ownerId]) {
       Sign in to that account to retry. Without its valid session, the outcome cannot be confirmed here.
     }
+    @if (auth.localCleanupStates()[ownerId] !== 'done') {
+      @if (cleanupConfirmation() === ownerId) {
+        <fieldset>
+          <legend>Erase local progress for account {{ ownerId }}?</legend>
+          <p>This does not delete server data or data on other devices. This browser profile will block sign-in to this account.</p>
+          <label><input type="checkbox" [checked]="cleanupConfirmed()" (change)="cleanupConfirmed.set($any($event.target).checked)"> I understand and want to erase this account's local progress.</label>
+          <button mat-button type="button" [disabled]="!cleanupConfirmed() || !!cleanupBusy()" (click)="eraseLocalData(ownerId)">Confirm local erase</button>
+          <button mat-button type="button" [disabled]="!!cleanupBusy()" (click)="cleanupConfirmation.set(null)">Cancel</button>
+        </fieldset>
+      } @else {
+        <button mat-button type="button" [disabled]="!!cleanupBusy()" (click)="confirmCleanup(ownerId)">{{ auth.localCleanupStates()[ownerId] === 'pending' ? 'Retry local erase' : 'Erase local data' }}</button>
+      }
+    }
+    @if (auth.localCleanupErrors()[ownerId]; as error) { <p role="alert">{{ error }}</p> }
   </div>
 }
 @if (auth.cleanupPending()) {
   <div role="alert" style="padding: 12px 20px;">
-    Account deleted, but this device's local data has not yet been erased. Close other WatchWatcher tabs and retry if this message remains.
+    Account deleted, but local cleanup or its completion could not be verified. Close other WatchWatcher tabs and retry if this message remains.
     <button mat-button type="button" (click)="auth.retryLocalCleanup()">Retry local deletion</button>
   </div>
 }
-<router-outlet />
+@if (!auth.accountViewInvalidated()) { <router-outlet (activate)="captureViewOwner()" /> }

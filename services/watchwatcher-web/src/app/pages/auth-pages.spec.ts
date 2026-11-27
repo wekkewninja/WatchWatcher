@@ -1,4 +1,4 @@
-import { Router } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +6,7 @@ import { AuthStateService } from '../core/auth-state.service';
 import { CreateAccountPage } from './create-account.page';
 import { LoginPage } from './login.page';
 import { AccountPage } from './account.page';
+import { PASSWORD_LIMIT_MESSAGE } from '../../../../shared/schemas/password';
 
 const googleCredential = { credential: 'google-credential', challengeId: 'challenge-1' };
 const authenticated = { kind: 'authenticated', user: { id: 'user-1', name: 'Sailor', email: 'sailor@example.com' } };
@@ -13,6 +14,9 @@ const auth = {
   login: vi.fn(),
   createAccount: vi.fn(),
   loginWithGoogle: vi.fn(),
+  logout: vi.fn(),
+  accountGeneration: 1,
+  user: signal<{ id: string } | null>(null),
 };
 const router = { navigateByUrl: vi.fn() };
 
@@ -21,10 +25,80 @@ beforeEach(() => {
   auth.login.mockResolvedValue(undefined);
   auth.createAccount.mockResolvedValue(undefined);
   auth.loginWithGoogle.mockResolvedValue(authenticated);
+  auth.logout.mockResolvedValue(undefined);
+  auth.accountGeneration = 1;
+  auth.user.set(null);
   router.navigateByUrl.mockResolvedValue(true);
 });
 
 describe('LoginPage', () => {
+  it('signs out before navigating to guest practice', async () => {
+    const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
+    let finish!: () => void;
+    auth.logout.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    const entering = page.practiceAsGuest();
+    expect(auth.logout).toHaveBeenCalled();
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    finish();
+    await entering;
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/examiner');
+  });
+
+  it('does not navigate if the account changes during guest transition', async () => {
+    const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
+    let finish!: () => void;
+    auth.logout.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    const entering = page.practiceAsGuest();
+    auth.accountGeneration++;
+    auth.user.set({ id: 'new-account' });
+    finish();
+    await entering;
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    expect(page.error()).toContain('Account changed');
+  });
+
+  it('reports a canceled guest navigation', async () => {
+    const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
+    router.navigateByUrl.mockResolvedValue(false);
+    await page.practiceAsGuest();
+    expect(page.error()).toContain('Could not open guest practice');
+  });
+  it('enforces the Unicode code-point minimum in the rendered form and submit handler', async () => {
+    await TestBed.configureTestingModule({ imports: [LoginPage], providers: [
+      { provide: AuthStateService, useValue: auth }, provideRouter([]),
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(LoginPage);
+    const page = fixture.componentInstance;
+    page.googleLink.set(googleCredential);
+    page.googleLinkConfirmed = true;
+    page.googleLinkPassword = '\u{1f6a2}'.repeat(7);
+    page.email = 'sailor@example.com';
+    page.password = '\u{1f6a2}'.repeat(7);
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('form button[type="submit"]') as HTMLButtonElement;
+    const linkButton = fixture.nativeElement.querySelector('.google-link-confirmation button[type="submit"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(linkButton.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('At least 8 Unicode code points.');
+    await page.submit();
+    expect(auth.login).not.toHaveBeenCalled();
+    expect(page.error()).toContain('at least 8 Unicode code points');
+    page.password += '\u{1f6a2}';
+    page.googleLinkPassword += '\u{1f6a2}';
+    fixture.detectChanges();
+    expect(button.disabled).toBe(false);
+    expect(linkButton.disabled).toBe(false);
+    await page.submit();
+    expect(auth.login).toHaveBeenCalledWith(page.email, page.password);
+    TestBed.resetTestingModule();
+  });
+  it('rejects oversized login passwords before calling the API', async () => {
+    const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
+    page.password = 'a'.repeat(1025);
+    await page.submit();
+    expect(page.error()).toBe(PASSWORD_LIMIT_MESSAGE);
+    expect(auth.login).not.toHaveBeenCalled();
+  });
   it('signs in with the entered credentials and navigates to the study desk', async () => {
     const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
     page.email = 'sailor@example.com';
@@ -51,6 +125,7 @@ describe('LoginPage', () => {
 
   it('shows actionable network, rate-limit, and server feedback without internal details', async () => {
     const page = new LoginPage(auth as unknown as AuthStateService, router as unknown as Router);
+    page.password = 'password123';
     auth.login.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await page.submit();
     expect(page.error()).toBe('Unable to reach WatchWatcher. Check your connection and try again.');
@@ -58,6 +133,10 @@ describe('LoginPage', () => {
     auth.login.mockRejectedValueOnce(Object.assign(new Error('internal rate detail'), { status: 429 }));
     await page.submit();
     expect(page.error()).toBe('Too many sign-in attempts. Wait a moment and try again.');
+
+    auth.login.mockRejectedValueOnce(Object.assign(new Error('limited'), { status: 429, retryAfterSeconds: 73 }));
+    await page.submit();
+    expect(page.error()).toBe('Too many sign-in attempts. Wait 2 minutes and try again.');
 
     auth.login.mockRejectedValueOnce(Object.assign(new Error('internal server detail'), { status: 500 }));
     await page.submit();
@@ -67,12 +146,46 @@ describe('LoginPage', () => {
 });
 
 describe('CreateAccountPage', () => {
-  it('rejects new passwords longer than 72 UTF-8 bytes', async () => {
-    const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
-    page.password = '\u00e9'.repeat(37);
+  it('enforces the Unicode code-point minimum in the rendered form and submit handler', async () => {
+    await TestBed.configureTestingModule({ imports: [CreateAccountPage], providers: [
+      { provide: AuthStateService, useValue: auth }, provideRouter([]),
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(CreateAccountPage);
+    const page = fixture.componentInstance;
+    page.googleLink.set(googleCredential);
+    page.googleLinkConfirmed = true;
+    page.googleLinkPassword = '\u{1f6a2}'.repeat(7);
+    page.name = 'Sailor';
+    page.email = 'sailor@example.com';
+    page.password = '\u{1f6a2}'.repeat(9);
+    page.confirmPassword = page.password;
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('form button[type="submit"]') as HTMLButtonElement;
+    const linkButton = fixture.nativeElement.querySelector('.google-link-confirmation button[type="submit"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(linkButton.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('10 to 1,024 Unicode code points.');
     await page.submit();
-    expect(page.error()).toBe('Password must be at most 72 UTF-8 bytes.');
     expect(auth.createAccount).not.toHaveBeenCalled();
+    page.password += '\u{1f6a2}';
+    page.googleLinkPassword += '\u{1f6a2}';
+    page.confirmPassword = page.password;
+    fixture.detectChanges();
+    expect(button.disabled).toBe(false);
+    expect(linkButton.disabled).toBe(false);
+    await page.submit();
+    expect(auth.createAccount).toHaveBeenCalledWith(page.name, page.email, page.password);
+    TestBed.resetTestingModule();
+  });
+  it('accepts long Unicode passwords and rejects passwords above the shared limit', async () => {
+    const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
+    page.password = '\u{1f6a2}'.repeat(256);
+    await page.submit();
+    expect(auth.createAccount).toHaveBeenCalledWith('', '', page.password);
+    page.password = '\u{1f6a2}'.repeat(1025);
+    await page.submit();
+    expect(page.error()).toBe(PASSWORD_LIMIT_MESSAGE);
+    expect(auth.createAccount).toHaveBeenCalledTimes(1);
   });
 
   it('trims the name and creates an account', async () => {
@@ -88,6 +201,7 @@ describe('CreateAccountPage', () => {
 
   it('reports account creation failures without navigating', async () => {
     const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
+    page.password = 'password123';
     auth.createAccount.mockRejectedValue(new Error('Account already exists'));
     await page.submit();
     expect(page.error()).toBe('Account already exists');
@@ -97,6 +211,7 @@ describe('CreateAccountPage', () => {
 
   it('gives actionable duplicate-email and network feedback after registration failures', async () => {
     const page = new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router);
+    page.password = 'password123';
     auth.createAccount.mockRejectedValueOnce(Object.assign(new Error('internal conflict detail'), { status: 409 }));
     await page.submit();
     expect(page.error()).toBe('An account may already exist for this email. Try signing in.');
@@ -113,6 +228,27 @@ describe.each([
   ['login', () => new LoginPage(auth as unknown as AuthStateService, router as unknown as Router)],
   ['registration', () => new CreateAccountPage(auth as unknown as AuthStateService, router as unknown as Router)],
 ] as const)('%s Google sign-in', (_label, createPage) => {
+  it('requires eight Unicode code points before linking', async () => {
+    const page = createPage();
+    page.googleLink.set(googleCredential);
+    page.googleLinkConfirmed = true;
+    page.googleLinkPassword = '\u{1f6a2}'.repeat(7);
+    await page.confirmGoogleLink();
+    expect(page.error()).toContain('at least 8 Unicode code points');
+    expect(auth.loginWithGoogle).not.toHaveBeenCalled();
+    page.googleLinkPassword += '\u{1f6a2}';
+    await page.confirmGoogleLink();
+    expect(auth.loginWithGoogle).toHaveBeenCalledWith({ ...googleCredential, linkExisting: { confirmed: true, password: '\u{1f6a2}'.repeat(8) } });
+  });
+  it('rejects oversized linking passwords before calling the API', async () => {
+    const page = createPage();
+    page.googleLink.set(googleCredential);
+    page.googleLinkConfirmed = true;
+    page.googleLinkPassword = 'a'.repeat(1025);
+    await page.confirmGoogleLink();
+    expect(page.error()).toBe(PASSWORD_LIMIT_MESSAGE);
+    expect(auth.loginWithGoogle).not.toHaveBeenCalled();
+  });
   it('navigates when the Google account is already authenticated', async () => {
     const page = createPage();
     await page.handleGoogleCredential(googleCredential);
@@ -176,6 +312,14 @@ describe('AccountPage', () => {
     router.navigateByUrl.mockClear();
   });
 
+  it('rejects oversized deletion passwords before calling the API', async () => {
+    const page = new AccountPage(accountAuth as unknown as AuthStateService, router as unknown as Router);
+    page.password = 'a'.repeat(1025);
+    await page.submitPassword();
+    expect(page.error()).toBe(PASSWORD_LIMIT_MESSAGE);
+    expect(accountAuth.deleteAccount).not.toHaveBeenCalled();
+  });
+
   it('displays the account and irreversible and offline-device warnings', async () => {
     await TestBed.configureTestingModule({ imports: [AccountPage], providers: [
       { provide: AuthStateService, useValue: accountAuth },
@@ -235,5 +379,17 @@ describe('AccountPage', () => {
     await page.submitPassword();
     expect(page.error()).toContain('Identity confirmation failed');
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('reports a server failure as an unconfirmed deletion outcome', async () => {
+    const page = new AccountPage(accountAuth as unknown as AuthStateService, router as unknown as Router);
+    page.confirmed = true;
+    page.confirmation = 'DELETE';
+    page.password = 'fresh-password';
+    accountAuth.deleteAccount.mockRejectedValueOnce(Object.assign(new Error('Unavailable'), { status: 503 }));
+    await page.submitPassword();
+    expect(page.error()).toContain('outcome is unconfirmed');
+    expect(page.error()).toContain('Server data may still exist');
+    expect(page.password).toBe('');
   });
 });

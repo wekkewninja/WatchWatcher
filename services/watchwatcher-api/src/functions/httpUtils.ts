@@ -13,7 +13,9 @@ export async function runHttp(
     logger.info({ method: request.method, path: new URL(request.url).pathname, status: response.status ?? 200, durationMs: Date.now() - startedAt, invocationId: context.invocationId }, 'HTTP request completed');
     return response;
   } catch (error) {
-    const response = handleError(error, context);
+    const path = new URL(request.url).pathname;
+    const sensitive = /(?:^|\/)auth(?:\/|$)/.test(path) || /(?:^|\/)account\/?$/.test(path);
+    const response = handleError(error, context, sensitive);
     logger.info({ method: request.method, path: new URL(request.url).pathname, status: response.status, durationMs: Date.now() - startedAt, invocationId: context.invocationId }, 'HTTP request failed');
     return response;
   }

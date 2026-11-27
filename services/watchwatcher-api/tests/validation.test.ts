@@ -11,18 +11,29 @@ describe('API input contracts', () => {
     expect(deleteAccountSchema.safeParse({ ...password, accountId: 'another-account' }).success).toBe(false);
     expect(deleteAccountSchema.safeParse({ ...google, reauthentication: { ...google.reauthentication, password: 'password' } }).success).toBe(false);
     expect(deleteAccountSchema.safeParse({ ...google, reauthentication: { ...google.reauthentication, challengeId: 'invalid' } }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({ confirmation: 'DELETE', receiptOnly: true }).success).toBe(true);
+    expect(deleteAccountSchema.safeParse({ ...password, receiptOnly: true }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({ confirmation: 'DELETE', receiptOnly: false }).success).toBe(false);
   });
   it('accepts a valid registration and rejects weak passwords', () => {
     expect(registerSchema.safeParse({ name: 'S. Taylor', email: 'sailor@example.test', password: 'a-strong-password' }).success).toBe(true);
     expect(registerSchema.safeParse({ name: 'S. Taylor', email: 'sailor@example.test', password: 'short' }).success).toBe(false);
   });
 
-  it('prevents new bcrypt passwords from exceeding 72 UTF-8 bytes', () => {
+  it('enforces the same Unicode bounds for every password flow', () => {
     const account = { name: 'Sailor', email: 'sailor@example.test' };
-    expect(registerSchema.safeParse({ ...account, password: 'a'.repeat(72) }).success).toBe(true);
-    expect(registerSchema.safeParse({ ...account, password: 'a'.repeat(73) }).success).toBe(false);
-    expect(registerSchema.safeParse({ ...account, password: '\u00e9'.repeat(36) }).success).toBe(true);
-    expect(registerSchema.safeParse({ ...account, password: '\u00e9'.repeat(37) }).success).toBe(false);
+    const accepts = (password: string) => [
+      registerSchema.safeParse({ ...account, password }).success,
+      credentialsSchema.safeParse({ email: account.email, password }).success,
+      googleSignInSchema.safeParse({ credential: 'g'.repeat(100), challengeId: '4a3eea85-72f6-4f90-a045-cf8fc2d83ff4', linkExisting: { confirmed: true, password } }).success,
+      deleteAccountSchema.safeParse({ confirmation: 'DELETE', reauthentication: { type: 'password', password } }).success,
+    ];
+    for (const password of ['a'.repeat(73), '\u00e9'.repeat(256), '\u{1f6a2}'.repeat(1024), 'a'.repeat(1024)]) expect(accepts(password)).toEqual([true, true, true, true]);
+    for (const password of ['a'.repeat(1025), '\u{1f6a2}'.repeat(1025), 'valid-password\ud800']) expect(accepts(password)).toEqual([false, false, false, false]);
+    expect(accepts('\u{1f6a2}'.repeat(7))).toEqual([false, false, false, true]);
+    expect(accepts('\u{1f6a2}'.repeat(8))).toEqual([false, true, true, true]);
+    expect(accepts('\u{1f6a2}'.repeat(9))).toEqual([false, true, true, true]);
+    expect(accepts('\u{1f6a2}'.repeat(10))).toEqual([true, true, true, true]);
   });
 
   it('validates credentials and rejects unknown fields', () => {

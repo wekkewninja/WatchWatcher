@@ -9,6 +9,18 @@ const specification = {
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
+      Password: {
+        type: 'string', maxLength: 1024,
+        description: 'At most 1,024 Unicode code points and 4,096 UTF-8 bytes; unpaired UTF-16 surrogates are rejected. Registration requires at least 10 Unicode code points, login and linking at least 8, and deletion at least 1. Passwords are UTF-8 encoded exactly as entered, without trimming, case folding, or Unicode normalization.',
+      },
+      CredentialsRequest: {
+        type: 'object', additionalProperties: false, required: ['email', 'password'],
+        properties: { email: { type: 'string', format: 'email', maxLength: 254 }, password: { $ref: '#/components/schemas/Password' } },
+      },
+      RegisterRequest: {
+        type: 'object', additionalProperties: false, required: ['name', 'email', 'password'],
+        properties: { name: { type: 'string', minLength: 2, maxLength: 80 }, email: { type: 'string', format: 'email', maxLength: 254 }, password: { $ref: '#/components/schemas/Password' } },
+      },
       RuleExerciseAttempt: {
         type: 'object',
         required: ['id', 'ruleId', 'selectedOptionId', 'correct', 'attemptedAt'],
@@ -65,16 +77,19 @@ const specification = {
           linkExisting: {
             type: 'object',
             required: ['confirmed', 'password'],
-            properties: { confirmed: { type: 'boolean', enum: [true] }, password: { type: 'string', minLength: 8, maxLength: 128 } },
+            properties: { confirmed: { type: 'boolean', enum: [true] }, password: { $ref: '#/components/schemas/Password' } },
           },
         },
       },
       DeleteAccountRequest: {
+        oneOf: [{ $ref: '#/components/schemas/DeleteAccountWithReauthentication' }, { type: 'object', additionalProperties: false, required: ['confirmation', 'receiptOnly'], properties: { confirmation: { type: 'string', enum: ['DELETE'] }, receiptOnly: { type: 'boolean', enum: [true] } } }],
+      },
+      DeleteAccountWithReauthentication: {
         type: 'object', additionalProperties: false, required: ['confirmation', 'reauthentication'],
         properties: {
           confirmation: { type: 'string', enum: ['DELETE'] },
           reauthentication: { oneOf: [
-            { type: 'object', additionalProperties: false, required: ['type', 'password'], properties: { type: { type: 'string', enum: ['password'] }, password: { type: 'string', minLength: 1, maxLength: 128 } } },
+            { type: 'object', additionalProperties: false, required: ['type', 'password'], properties: { type: { type: 'string', enum: ['password'] }, password: { $ref: '#/components/schemas/Password' } } },
             { type: 'object', additionalProperties: false, required: ['type', 'credential', 'challengeId'], properties: { type: { type: 'string', enum: ['google'] }, credential: { type: 'string', minLength: 100, maxLength: 10000 }, challengeId: { type: 'string', format: 'uuid' } } },
           ] },
         },
@@ -83,9 +98,9 @@ const specification = {
   },
   paths: {
     '/health': { get: { summary: 'API and optional service health', responses: { '200': { description: 'Healthy or degraded' }, '503': { description: 'Unavailable' } } } },
-    '/auth/register': { post: { summary: 'Create an account', responses: { '201': { description: 'Account created' }, '409': { description: 'Duplicate account' } } } },
-    '/auth/login': { post: { summary: 'Create a signed-in session', responses: { '200': { description: 'Session created' }, '401': { description: 'Invalid credentials' } } } },
-    '/auth/session': { post: { summary: 'Start a session for account features', responses: { '200': { description: 'Session created' } } } },
+    '/auth/register': { post: { summary: 'Create an account', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/RegisterRequest' } } } }, responses: { '201': { description: 'Account created' }, '409': { description: 'Duplicate account' } } } },
+    '/auth/login': { post: { summary: 'Create a signed-in session', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CredentialsRequest' } } } }, responses: { '200': { description: 'Session created' }, '401': { description: 'Invalid credentials' } } } },
+    '/auth/session': { post: { summary: 'Start a session for account features', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CredentialsRequest' } } } }, responses: { '200': { description: 'Session created' } } } },
     '/auth/google/config': {
       get: {
         summary: 'Read public Google sign-in configuration',
@@ -117,13 +132,21 @@ const specification = {
       },
     },
     '/auth/me': { get: { summary: 'Read the signed-in user', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Current user' } } } },
+    '/auth/logout': {
+      post: {
+        summary: 'Revoke the current session',
+        description: 'Requires an unexpired, signed bearer token with a session ID. Retrying an already revoked session succeeds. No request body is required.',
+        security: [{ bearerAuth: [] }],
+        responses: { '204': { description: 'Session revoked or already revoked; no response body', headers: { 'Cache-Control': { schema: { type: 'string' }, description: 'no-store' } } }, '401': { description: 'Invalid, expired, or non-revocable bearer token' }, '503': { description: 'Session store unavailable' } },
+      },
+    },
     '/account': {
       delete: {
         summary: 'Delete the current account and its server records',
-        description: 'Accounts and server records are retained until learner deletion. Deletion is online only. Google reauthentication requires a fresh single-use challenge from /auth/google/challenge. A valid session for an already deleted account also returns 204. Backup retention is pending legal and operational determination.',
+        description: 'Accounts and server records are retained until learner deletion. Deletion is online only and invalidates all sessions. Google reauthentication requires a fresh single-use challenge from /auth/google/challenge. Only the unexpired initiating token can confirm a completed deletion; this receipt cannot authorize other operations. Backup retention is pending legal and operational determination.',
         security: [{ bearerAuth: [] }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DeleteAccountRequest' } } } },
-        responses: { '204': { description: 'Account deleted or already absent; no response body' }, '401': { description: 'Invalid or expired bearer session' }, '403': { description: 'Reauthentication failed (REAUTHENTICATION_FAILED)' }, '422': { description: 'Invalid request' }, '503': { description: 'Required service not configured' } },
+        responses: { '204': { description: 'Account deleted; no response body' }, '401': { description: 'Invalid, revoked or expired bearer session' }, '403': { description: 'Reauthentication failed (REAUTHENTICATION_FAILED)' }, '422': { description: 'Invalid request' }, '503': { description: 'Required service not configured' } },
       },
     },
     '/progress': {
@@ -135,7 +158,24 @@ const specification = {
         responses: { '200': { description: 'Revision saved' }, '409': { description: 'Stale revision' } },
       },
     },
-    '/exam/evaluate': { post: { summary: 'Evaluate a study answer', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Structured evaluation' } } } },
+    '/exam/evaluate': { post: {
+      summary: 'Evaluate an answer online with explicit consent',
+      description: 'Sends only the topic, context, and answer to Google Gemini. Free text is not graded offline. AI judgment is not authoritative navigation guidance. Valid requests count against a proposed 30-per-hour account fixed window.',
+      security: [{ bearerAuth: [] }],
+      requestBody: { required: true, content: { 'application/json': { schema: {
+        type: 'object', additionalProperties: false, required: ['topicId', 'context', 'answer', 'onlineConsent'],
+        properties: {
+          topicId: { type: 'string', minLength: 1, maxLength: 120 },
+          context: { type: 'string', minLength: 1, maxLength: 10000 },
+          answer: { type: 'string', minLength: 1, maxLength: 12000 },
+          onlineConsent: { type: 'boolean', enum: [true], description: 'Explicit per-request consent to send the topic, context, and answer to Google.' },
+        },
+      } } } },
+      responses: { '200': { description: 'Online evaluation; pass requires the score threshold and criticalFailure false', content: { 'application/json': { schema: {
+        type: 'object', required: ['score', 'feedback', 'misconceptionTag', 'followUpDrill', 'source', 'criticalFailure', 'criticalFailureReason'],
+        properties: { score: { type: 'number', minimum: 0, maximum: 1 }, feedback: { type: 'string' }, misconceptionTag: { type: 'string', nullable: true }, followUpDrill: { type: 'string' }, source: { type: 'string', enum: ['online'] }, criticalFailure: { type: 'boolean' }, criticalFailureReason: { type: 'string', nullable: true, description: 'Nonempty for a critical failure; null otherwise.' } },
+      } } } }, '401': { description: 'Authentication required' }, '422': { description: 'Invalid request or missing consent' }, '429': { description: 'Account evaluation quota exhausted', headers: { 'Retry-After': { schema: { type: 'integer' } } } }, '503': { description: 'Limiter or online evaluation unavailable, including uncertain or invalid provider judgment' } },
+    } },
   },
 };
 

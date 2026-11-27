@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../api';
+import type { OnlineEvaluationRequest } from '@watchwatcher/shared/types';
 import { ExaminerAiService } from './examiner-ai.service';
 import { OfflineExaminerService } from './offline-examiner.service';
 
@@ -12,7 +13,15 @@ describe('ExaminerAiService free-text grading', () => {
     vi.unstubAllGlobals();
   });
 
-  const answer = { topicId: 'colregs_rule_19', context: 'Target forward of the beam', answer: 'A clear starboard alteration under Rule 19.' };
+  const answer = { topicId: 'colregs_rule_19', context: 'Target forward of the beam', answer: 'A clear starboard alteration under Rule 19.', onlineConsent: true } as const;
+
+  it('refuses missing or false consent before calling the API', () => {
+    const evaluate = vi.spyOn(api, 'evaluateAnswer');
+    expect(() => examiner.evaluateFreeText({ ...answer, onlineConsent: false } as unknown as OnlineEvaluationRequest)).toThrow('explicit consent');
+    const { onlineConsent: _consent, ...legacy } = answer;
+    expect(() => examiner.evaluateFreeText(legacy as OnlineEvaluationRequest)).toThrow('explicit consent');
+    expect(evaluate).not.toHaveBeenCalled();
+  });
 
   it('refuses to pass a deterministic offline response as an AI-verified text answer', async () => {
     vi.spyOn(api, 'evaluateAnswer').mockResolvedValue({
@@ -24,23 +33,24 @@ describe('ExaminerAiService free-text grading', () => {
       source: 'offline',
     });
 
-    await expect(examiner.evaluateFreeText(answer)).rejects.toThrow('Online AI verification is unavailable');
+    await expect(examiner.evaluateFreeText(answer)).rejects.toThrow('Online AI evaluation is unavailable');
   });
 
   it('refuses free-text grading when the browser is offline', async () => {
     vi.stubGlobal('navigator', { onLine: false });
     const evaluate = vi.spyOn(api, 'evaluateAnswer');
 
-    expect(() => examiner.evaluateFreeText(answer)).toThrow('Free-text grading requires online AI verification');
+    expect(() => examiner.evaluateFreeText(answer)).toThrow('Free-text grading requires online AI evaluation');
     expect(evaluate).not.toHaveBeenCalled();
   });
 
   it('accepts a threshold-passing AI-sourced online answer', async () => {
     vi.spyOn(api, 'evaluateAnswer').mockResolvedValue({
       score: 0.92,
-      feedback: 'AI verified a safe Rule 19 response.',
+      feedback: 'AI assessment suggests a safe Rule 19 response.',
       misconceptionTag: null,
       followUpDrill: 'Try a starboard-bow target.',
+      criticalFailure: false, criticalFailureReason: null,
       passed: false,
       source: 'online',
     });
@@ -54,6 +64,7 @@ describe('ExaminerAiService free-text grading', () => {
       feedback: 'Pass',
       misconceptionTag: null,
       followUpDrill: 'Continue.',
+      criticalFailure: false, criticalFailureReason: null,
       passed: true,
       source: 'online',
     });
@@ -68,6 +79,7 @@ describe('ExaminerAiService free-text grading', () => {
       feedback: 'Verified.',
       misconceptionTag: null,
       followUpDrill: 'Continue.',
+      criticalFailure: false, criticalFailureReason: null,
       passed: true,
       source: 'online',
     });
@@ -76,6 +88,7 @@ describe('ExaminerAiService free-text grading', () => {
   });
 
   it('delegates structured Rule 19 answers to the deterministic offline evaluator', () => {
+    const evaluate = vi.spyOn(api, 'evaluateAnswer');
     const result = examiner.evaluateStructuredRule19({
       ruleNumber: 19,
       prohibits: 'port',
@@ -84,5 +97,17 @@ describe('ExaminerAiService free-text grading', () => {
     });
 
     expect(result).toMatchObject({ passed: true, score: 0.95, source: 'offline' });
+    expect(evaluate).not.toHaveBeenCalled();
+  });
+
+  it('does not pass a high-score critical failure', async () => {
+    vi.spyOn(api, 'evaluateAnswer').mockResolvedValue({ score: 0.99, feedback: 'Review', misconceptionTag: 'unsafe', followUpDrill: 'Review', source: 'online', passed: true, criticalFailure: true, criticalFailureReason: 'Unsafe action.' });
+    await expect(examiner.evaluateFreeText(answer)).resolves.toMatchObject({ passed: false });
+  });
+
+  it('rejects oversize answers before calling the API', () => {
+    const evaluate = vi.spyOn(api, 'evaluateAnswer');
+    expect(() => examiner.evaluateFreeText({ ...answer, answer: 'x'.repeat(12001) })).toThrow('12,000');
+    expect(evaluate).not.toHaveBeenCalled();
   });
 });

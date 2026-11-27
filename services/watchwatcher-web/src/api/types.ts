@@ -1,5 +1,5 @@
 import type {
-  EvaluationRequest,
+  OnlineEvaluationRequest,
   ProgressSnapshot,
   PublicAccount,
 } from '@watchwatcher/shared/types';
@@ -50,5 +50,5 @@ export interface ApiClient {
   searchColregs(query: string): Promise<ColregsRule[]>;
   getProgress(): Promise<ProgressSnapshot>;
   syncProgress(snapshot: ProgressSnapshot, revision?: number): Promise<{ syncedAt: string; revision: number }>;
-  evaluateAnswer(input: EvaluationRequest): Promise<EvaluationResult>;
+  evaluateAnswer(input: OnlineEvaluationRequest): Promise<EvaluationResult>;
 }

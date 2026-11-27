@@ -26,12 +26,12 @@ export interface SessionResponse {
   user: PublicAccount;
 }
 
-export interface DeleteAccountRequest {
+export type DeleteAccountRequest = {
   confirmation: 'DELETE';
   reauthentication:
     | { type: 'password'; password: string }
     | { type: 'google'; credential: string; challengeId: string };
-}
+} | { confirmation: 'DELETE'; receiptOnly: true };
 
 export interface ProgressResponse extends StoredProgress {}
 

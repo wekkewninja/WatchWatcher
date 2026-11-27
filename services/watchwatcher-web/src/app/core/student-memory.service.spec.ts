@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../api';
-import type { AuthStateService } from './auth-state.service';
+import { AuthStateService } from './auth-state.service';
 import { emptyProgressSnapshot, mergeProgressSnapshots, selectNextRuleExercise, StudentMemoryService, summarizeRuleExercise } from './student-memory.service';
 import { StorageRepository } from './storage-repository.service';
 import type { ColregsRule, EvaluationResult, ProgressSnapshot } from '../domain-types';
@@ -26,6 +26,8 @@ function memoryFor(accountId: string): StudentMemoryService {
 
 describe('StudentMemoryService rule exercise progress', () => {
   beforeEach(async () => {
+    localStorage.clear();
+    sessionStorage.clear();
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.deleteDatabase('watchwatcher-local');
       request.onsuccess = () => resolve();
@@ -35,10 +37,20 @@ describe('StudentMemoryService rule exercise progress', () => {
   });
 
   afterEach(async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     await api.logout();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     localStorage.clear();
+  });
+
+  it('isolates guest attempts from account progress', async () => {
+    const guest = new StudentMemoryService(new StorageRepository(), { user: () => null } as unknown as AuthStateService);
+    await guest.recordRuleExerciseAttempt('rule-19', 'b', 'b');
+    expect((await guest.loadProgress())?.ruleExerciseAttempts).toHaveLength(1);
+    expect(await memoryFor('account-a').loadProgress()).toBeNull();
+    await memoryFor('account-a').recordRuleExerciseAttempt('rule-5', 'a', 'b');
+    expect((await guest.loadProgress())?.ruleExerciseAttempts.map((attempt) => attempt.ruleId)).toEqual(['rule-19']);
   });
 
   it('records attempts and isolates them by authenticated account', async () => {
@@ -53,6 +65,38 @@ describe('StudentMemoryService rule exercise progress', () => {
     expect(summarizeRuleExercise('rule-19', firstProgress!).completed).toBe(true);
     expect(summarizeRuleExercise('rule-19', firstProgress!).mastery).toBe(50);
     expect(secondProgress).toBeNull();
+  });
+
+  it('keeps study progress in the local account after sync expiry and isolates account switches and logout', async () => {
+    const accountA = { id: 'expiry-a', name: 'A', email: 'a@example.test' };
+    const accountB = { id: 'expiry-b', name: 'B', email: 'b@example.test' };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId: accountA.id, session: 'token-a', user: accountA }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Expired' } }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ accountId: accountB.id, session: 'token-b', user: accountB }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 })));
+    const auth = new AuthStateService();
+    await auth.initialization;
+    await auth.login(accountA.email, 'password');
+    const memory = new StudentMemoryService(new StorageRepository(), auth);
+    await expect(memory.syncProgress()).rejects.toThrow();
+    expect(auth.cloudAuth()).toBe('local');
+    await memory.recordRuleExerciseAttempt('rule-a', 'a', 'b');
+    expect((await new StorageRepository().loadProgress(accountA.id))?.ruleExerciseAttempts).toHaveLength(1);
+    expect(await new StorageRepository().loadProgress('guest')).toBeNull();
+    await expect(auth.deleteAccount(accountA.id, auth.accountGeneration, { type: 'password', password: 'password' })).rejects.toThrow('Sign in again');
+    expect((await memory.loadProgress())?.ruleExerciseAttempts).toHaveLength(1);
+    const reloaded = new AuthStateService();
+    await reloaded.initialization;
+    expect(reloaded.user()?.id).toBe(accountA.id);
+    expect(reloaded.cloudAuth()).toBe('local');
+    await auth.login(accountB.email, 'password');
+    expect(await memory.loadProgress()).toBeNull();
+    await auth.logout();
+    expect(auth.user()).toBeNull();
+    expect(await memory.loadProgress()).toBeNull();
+    expect((await new StorageRepository().loadProgress(accountA.id))?.ruleExerciseAttempts).toHaveLength(1);
+    expect(await new StorageRepository().loadProgress(accountB.id)).toBeNull();
   });
 
   it('keeps an in-flight attempt in the account that started it if the active account changes', async () => {
@@ -81,6 +125,62 @@ describe('StudentMemoryService rule exercise progress', () => {
     await expect(recording).rejects.toThrow('Account changed while recording progress.');
 
     expect(savedOwners).toEqual(['account-a']);
+  });
+
+  it('does not merge or sync a delayed cloud snapshot after switching to guest', async () => {
+    const owner = { id: 'sync-switch-owner', name: 'Sailor', email: 'sync@example.test' };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ accountId: owner.id, session: 'sync-token', user: owner }))));
+    await api.login({ email: owner.email, password: 'password' });
+    let active: typeof owner | null = owner;
+    const auth = { user: () => active, accountGeneration: 1 } as unknown as AuthStateService;
+    const storage = new StorageRepository();
+    const memory = new StudentMemoryService(storage, auth);
+    let finish!: (snapshot: ProgressSnapshot) => void;
+    vi.spyOn(api, 'getProgress').mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const sync = vi.spyOn(api, 'syncProgress');
+    const pending = memory.syncProgress();
+    active = null;
+    (auth as unknown as { accountGeneration: number }).accountGeneration++;
+    finish({ ...emptyProgressSnapshot(), topicMastery: { remote: 100 } });
+    await expect(pending).rejects.toThrow('Account changed');
+    expect(await storage.loadProgress(owner.id)).toBeNull();
+    expect(await storage.loadProgress('guest')).toBeNull();
+    expect(sync).not.toHaveBeenCalled();
+  });
+
+  it('does not write a delayed study attempt after a switch away and back to the same account', async () => {
+    const owner = { id: 'study-switch-owner', name: 'Sailor', email: 'study@example.test' };
+    const auth = { user: () => owner, accountGeneration: 1 } as unknown as AuthStateService;
+    const storage = new StorageRepository();
+    const update = storage.updateProgress.bind(storage);
+    let finish!: () => void;
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    vi.spyOn(storage, 'updateProgress').mockImplementation(async (id, apply) => { await gate; return update(id, apply); });
+    const memory = new StudentMemoryService(storage, auth);
+    const pending = memory.recordRuleExerciseAttempt('rule-19', 'b', 'b');
+    (auth as unknown as { accountGeneration: number }).accountGeneration += 2;
+    finish();
+    await expect(pending).rejects.toThrow('Account changed');
+    expect(await storage.loadProgress(owner.id)).toBeNull();
+  });
+
+  it('does not restore cloud progress when a delayed read finishes after local-only cleanup', async () => {
+    const owner = { id: 'merge-cleanup', name: 'Sailor', email: 'merge@example.test' };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ accountId: owner.id, session: 'token', user: owner }), { status: 200 })));
+    await api.login({ email: owner.email, password: 'password' });
+    const storage = new StorageRepository();
+    const auth = { user: () => owner } as unknown as AuthStateService;
+    const memory = new StudentMemoryService(storage, auth);
+    let finishRead!: (snapshot: ProgressSnapshot) => void;
+    vi.spyOn(api, 'getProgress').mockReturnValue(new Promise((resolve) => { finishRead = resolve; }));
+    const sync = vi.spyOn(api, 'syncProgress');
+    const loading = memory.loadAndMergeCloudProgress();
+    localStorage.setItem(`watchwatcher-local-cleanup:${owner.id}`, 'pending');
+    await storage.deleteAccountProgress(owner.id, true);
+    finishRead({ topicMastery: { remote: 100 }, weakSpotLog: [], drillQueue: [], ruleExerciseAttempts: [] });
+    await expect(loading).resolves.toEqual(emptyProgressSnapshot());
+    await expect(storage.loadProgress(owner.id)).resolves.toBeNull();
+    expect(sync).not.toHaveBeenCalled();
   });
 
   it('merges offline events by unique ID without double-counting repeated sync snapshots', () => {

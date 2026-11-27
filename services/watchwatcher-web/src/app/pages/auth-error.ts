@@ -8,7 +8,12 @@ export function authenticationErrorMessage(error: unknown, operation: 'Sign-in' 
   const status = responseStatus(error);
   if (status === 401) return 'Email or password is incorrect.';
   if (status === 409 && operation === 'Account creation') return 'An account may already exist for this email. Try signing in.';
-  if (status === 429) return `Too many ${operation.toLowerCase()} attempts. Wait a moment and try again.`;
+  if (status === 429) {
+    const retryAfter = typeof error === 'object' && error !== null && 'retryAfterSeconds' in error ? error.retryAfterSeconds : undefined;
+    const minutes = typeof retryAfter === 'number' && Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter / 60) : undefined;
+    const wait = minutes ? `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}` : 'a moment';
+    return `Too many ${operation.toLowerCase()} attempts. Wait ${wait} and try again.`;
+  }
   if (status !== undefined && status >= 500) return `${operation} is temporarily unavailable. Please try again shortly.`;
   if (error instanceof TypeError) return 'Unable to reach WatchWatcher. Check your connection and try again.';
   return error instanceof Error ? error.message : `${operation} failed. Please try again.`;

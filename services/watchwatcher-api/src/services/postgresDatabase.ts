@@ -4,11 +4,43 @@ import type { PublicAccount, ProgressSnapshot, StoredProgress } from '../../../s
 import type { AppConfig } from './config';
 import { ConflictError, ReauthenticationError, ServiceUnavailableError, UnauthorizedError } from '../errors/errorTypes';
 import type { IDatabaseService } from './interfaces/IDatabaseService';
+import { deletionReceiptHash } from './deletionReceipt';
 
 export class PostgresDatabaseService implements IDatabaseService {
   private pool: Pool | null = null;
 
   constructor(private readonly config: AppConfig) {}
+
+  async createSession(id: string, accountId: string, expiresAt: Date): Promise<void> {
+    await this.getPool().query('INSERT INTO sessions (id, account_id, expires_at) VALUES ($1, $2, $3)', [id, accountId, expiresAt]);
+  }
+
+  async findSessionAccount(id: string, accountId: string): Promise<{ id: string; name: string; email: string; passwordHash: string | null } | null> {
+    const result = await this.getPool().query<{ id: string; name: string; email: string; password_hash: string | null }>(
+      'SELECT users.id, users.name, users.email, users.password_hash FROM sessions JOIN users ON users.id = sessions.account_id WHERE sessions.id = $1 AND sessions.account_id = $2 AND sessions.expires_at > clock_timestamp()',
+      [id, accountId],
+    );
+    const account = result.rows[0];
+    return account ? { id: account.id, name: account.name, email: account.email, passwordHash: account.password_hash } : null;
+  }
+
+  async revokeSession(id: string, accountId: string): Promise<void> {
+    const client = await this.getPool().connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+      await client.query('DELETE FROM sessions WHERE id = $1 AND account_id = $2', [id, accountId]);
+      await client.query('DELETE FROM deletion_receipts WHERE session_hash = $1', [deletionReceiptHash(accountId, id)]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async hasDeletionReceipt(sessionHash: string): Promise<boolean> {
+    const result = await this.getPool().query('SELECT 1 FROM deletion_receipts WHERE session_hash = $1 AND expires_at > clock_timestamp()', [sessionHash]);
+    return result.rowCount === 1;
+  }
 
   async consumeIdentifierLimit(keyHash: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean; retryAfter: number }> {
     const result = await this.getPool().query<{ allowed: boolean; retry_after: number }>(
@@ -141,15 +173,15 @@ export class PostgresDatabaseService implements IDatabaseService {
     } finally { client.release(); }
   }
 
-  async deleteAccount(accountId: string, verification: { type: 'password'; passwordHash: string } | { type: 'google'; subject: string; challengeId: string; nonceHash: string }): Promise<void> {
+  async deleteAccount(accountId: string, verification: { type: 'password'; passwordHash: string } | { type: 'google'; subject: string; challengeId: string; nonceHash: string }, sessionId: string, tokenExpiresAt: Date): Promise<void> {
     const client = await this.getPool().connect();
     try {
       await client.query('BEGIN');
-      const account = await client.query<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE id = $1 FOR UPDATE', [accountId]);
-      if (account.rowCount === 0) {
-        await client.query('COMMIT');
-        return;
-      }
+      const account = await client.query<{ password_hash: string | null }>(
+        'SELECT users.password_hash FROM users JOIN sessions ON sessions.account_id = users.id WHERE users.id = $1 AND sessions.id = $2 AND sessions.expires_at > clock_timestamp() FOR UPDATE OF users, sessions',
+        [accountId, sessionId],
+      );
+      if (account.rowCount === 0) throw new UnauthorizedError('Session is invalid or expired.');
       if (verification.type === 'password') {
         if (account.rows[0].password_hash !== verification.passwordHash) throw new ReauthenticationError();
       } else {
@@ -164,6 +196,10 @@ export class PostgresDatabaseService implements IDatabaseService {
         );
         if (challenge.rowCount !== 1) throw new ReauthenticationError();
       }
+      await client.query(
+        'INSERT INTO deletion_receipts (session_hash, expires_at) SELECT $1, LEAST(expires_at, $2) FROM sessions WHERE id = $3 AND account_id = $4',
+        [deletionReceiptHash(accountId, sessionId), tokenExpiresAt, sessionId, accountId],
+      );
       await client.query('DELETE FROM users WHERE id = $1', [accountId]);
       await client.query('COMMIT');
     } catch (error) {

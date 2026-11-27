@@ -1,5 +1,11 @@
 # WatchWatcher — Autonomous Build Specification for GitHub Copilot
 
+## Approved Evaluation Privacy Decision
+
+The current Angular/API implementation requires explicit, informed, per-answer consent before sending a learner's topic, question context, and answer to Google Gemini. Consent is off by default, is not persisted, and must be renewed after editing, navigation, submission, logout, or an account change. The authenticated API requires `onlineConsent: true` and rejects older requests; the provider receives only `topicId`, `context`, and `answer`, never consent, account identity, or progress. Provider errors return 503 without free-text fallback. Learners can skip a free-text answer ungraded or use the existing offline structured-choice exercises. This decision supersedes any older Flutter or keyword-grading instructions below.
+
+Guests can use the structured COLREGs practice and reference without an account; guest and account local progress are separate and guest progress is not automatically uploaded. Valid online evaluations are limited to a proposed 30 per account per hour in PostgreSQL, using scoped HMAC identifiers; limiter failure is closed. Trusted IP and aggregate abuse controls remain unresolved. The provider must explicitly indicate whether a critical safety failure exists and give a consistent reason; uncertain or invalid results are not graded. Passing requires both the score threshold and an explicit no-critical-failure judgment. This judgment is fallible AI output, not authoritative navigation guidance. Answers longer than 12,000 characters after trimming must be shortened before submission.
+
 ## 1. Project Overview & Identity
 - **App Name:** WatchWatcher
 - **Package / Slug:** `watch_watcher`
@@ -26,8 +32,8 @@
 
 ### B. Threshold-Gated Examiner & Adaptive Remediation Loop
 1. **Dual-Mode Grading Engine (`ExaminerAiService`):**
-  - **Online Mode (Gemini Structured JSON Output):** When the user is signed in and the API is reachable, send the grounded rule context, student answer, and historical weak-spot summary to `POST /api/exam/evaluate`. The Azure Functions API calls `gemini-2.5-flash` using server-side `GEMINI_API_KEY` configuration and returns structured JSON (`score`, `feedback`, `misconceptionTag`, `followUpDrill`). Never ship the Gemini key in the Flutter app or pass it through `--dart-define`.
-  - **Offline Fallback Mode (Deterministic Rubric Engine):** When offline, signed out, or the API times out or fails, automatically evaluate answers using weighted keyword matching, critical safety anti-patterns (`forbidden_keywords`), and multi-tier remediation text from `curriculum_seed.json`.
+  - **Online Mode (Gemini Structured JSON Output):** With explicit per-answer consent and an authenticated session, send the topic, grounded question context, and answer to `POST /api/exam/evaluate`. The API calls `gemini-2.5-flash` with its server-side key and returns structured feedback. Do not send account or weak-spot history to the provider.
+  - **Offline Mode:** Use structured-choice exercises or skip free-text answers ungraded. Do not substitute keyword-based free-text grading when online evaluation is unavailable.
 2. **Progression Gate:**
    - Each module defines a `pass_threshold` (e.g., `0.85` for COLREGs and Emergencies; `0.80` for Navigation, Tides, Meteorology, Passage Planning).
    - If `score < pass_threshold`:
@@ -455,7 +461,7 @@ The examples below are historical design notes, not the current data contract. T
 
 ## 4.3 Gemini Structured Output Schema & Prompt Contract (`ExaminerAiService`)
 
-When the user has an active session and the API is reachable within `12 seconds`, the Flutter client sends the evaluation request to `POST /api/exam/evaluate`. The Azure Functions API calls Gemini using its server-side `GEMINI_API_KEY` configuration. The Gemini request body below is sent only by the API to Google; the Flutter client must never call the Gemini endpoint directly or bundle the key.
+After explicit per-answer consent, an authenticated client can send the evaluation request to `POST /api/exam/evaluate`. The Azure Functions API calls Gemini using its server-side `GEMINI_API_KEY` configuration. Clients must never call Gemini directly or bundle the key.
 
 ### WatchWatcher API Contracts
 
@@ -465,10 +471,9 @@ When the user has an active session and the API is reachable within `12 seconds`
 | `POST` | `/api/auth/session` | Start an authenticated session | `{ credentials }` | `{ accountId, session }` |
 | `GET` | `/api/progress` | Read the signed-in account's cloud snapshot | — | `{ topicMastery, weakSpotLog, drillQueue }` |
 | `PUT` | `/api/progress` | Sync local progress using the supplied revision | `{ topicMastery, weakSpotLog, drillQueue, revision }` | `{ syncedAt, revision }`; `409` for a stale revision |
-| `POST` | `/api/exam/evaluate` | Optional online structured evaluation | `{ topicId, context, answer }` | `{ score, feedback, misconceptionTag, followUpDrill }` |
+| `POST` | `/api/exam/evaluate` | Optional online structured evaluation | `{ topicId, context, answer, onlineConsent: true }` | `{ score, feedback, misconceptionTag, followUpDrill, source: "online" }` |
 
-The client applies the topic's locally bundled pass threshold and records evaluation results locally. API failures, including `401`, `409`, `503`, or timeout, must leave offline study and deterministic grading available.
-The API maps Gemini's snake_case provider fields to the camelCase response contract shown above.
+The client applies the topic's pass threshold. API failures must leave structured offline study and ungraded skipping available.
 
 ### Request Body Contract
 
@@ -486,7 +491,7 @@ The API maps Gemini's snake_case provider fields to the camelCase response contr
       "role": "user",
       "parts": [
         {
-          "text": "Active Standard: RYA | Rule Ref: IRPCS Rule 19(d) | Grounded Summary: ... | Student Weak-Spot History: ... | Question: ... | Student Answer: ..."
+          "text": "{\"topicId\":\"rule-19\",\"context\":\"Synthetic question and reference\",\"answer\":\"Synthetic answer\"}"
         }
       ]
     }
@@ -521,14 +526,9 @@ The API maps Gemini's snake_case provider fields to the camelCase response contr
 
 ```
 
-### Offline Deterministic Rubric Fallback Rules
+### Offline Alternative
 
-When offline, signed out, or the evaluation API returns an error or times out:
-
-1. Normalize `studentAnswer` to lowercase.
-2. Scan `question.forbiddenKeywords`: if any forbidden phrase matches, immediately return `score = 0.15`, `passed = false`, `triggerDeepRemediation = true`, and `feedback = "Examiner Stop: Dangerous seamanship error detected...\n\n${question.deepRemediation}"`.
-3. Count matches against `question.expectedKeywords`: compute `score = (hits / expectedKeywords.length).clamp(0.0, 1.0)`.
-4. If `score >= passThreshold`, return `passed = true` with `question.correctExplanation`; otherwise return `passed = false`, log `misconceptionTag = "gap_${topic.id}"`, and show `question.deepRemediation`.
+Structured choices are graded locally against their predefined answer. Free-text answers cannot be reliably graded by the keyword evaluator and are left ungraded when skipped.
 
 ---
 
@@ -740,7 +740,7 @@ flutter:
   - `lib/services/api_client.dart`: calls the WatchWatcher API and attaches the session token without exposing service credentials.
   - `lib/services/auth_service.dart`: optional sign-in, sign-out, and session management using platform secure storage.
   - `lib/services/progress_sync_service.dart`: revision-aware sync of the local progress snapshot; preserves local state on offline, authorization, and conflict errors.
-  - `lib/services/examiner_ai_service.dart`: calls `POST /api/exam/evaluate` when signed in and online; otherwise runs the deterministic local rubric. It must not read `GEMINI_API_KEY` or call Google Gemini directly.
+  - `lib/services/examiner_ai_service.dart`: any future client must obtain per-answer consent before calling `POST /api/exam/evaluate`, and must not read `GEMINI_API_KEY`, call Gemini directly, or grade free text with a deterministic fallback.
 
   **Phase C — Azure Functions API**
 

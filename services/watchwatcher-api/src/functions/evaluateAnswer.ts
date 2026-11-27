@@ -1,7 +1,7 @@
 import { app } from '@azure/functions';
 import { evaluateAnswerSchema } from '../../../shared/schemas/validation';
 import { validateBody } from '../middleware/validateRequest';
-import { logger } from '../logger';
+import { ServiceUnavailableError, ValidationError } from '../errors/errorTypes';
 import { getServices } from '../services/registry';
 import { bearerHeader, runHttp } from './httpUtils';
 
@@ -11,15 +11,19 @@ app.http('evaluateAnswer', {
   route: 'exam/evaluate',
   handler: (request, context) => runHttp(request, context, async () => {
     const services = getServices();
-    await services.auth.authenticate(bearerHeader(request));
-    const input = await validateBody(request, evaluateAnswerSchema);
-    let evaluation;
+    const account = await services.auth.authenticate(bearerHeader(request));
+    let input;
     try {
-      evaluation = await services.evaluation.evaluate(input);
+      input = await validateBody(request, evaluateAnswerSchema);
     } catch (error) {
-      logger.warn({ err: error, topicId: input.topicId }, 'Online evaluation unavailable; applying deterministic rubric');
-      evaluation = await services.deterministicEvaluation.evaluate(input);
+      if (error instanceof ValidationError) throw new ValidationError('Request validation failed');
+      throw error;
     }
-    return { status: 200, jsonBody: evaluation };
+    await services.auth.consumeEvaluationLimit(account.id);
+    try {
+      return { status: 200, jsonBody: await services.evaluation.evaluate(input) };
+    } catch {
+      throw new ServiceUnavailableError('Online evaluation is unavailable.');
+    }
   }),
 });
