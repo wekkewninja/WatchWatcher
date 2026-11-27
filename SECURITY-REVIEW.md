@@ -25,7 +25,7 @@ This is a source, configuration, dependency, and local-test review of the web ap
 | Unexpected API errors could expose internal messages in Azure Production because redaction checked `NODE_ENV` while Functions uses `AZURE_FUNCTIONS_ENVIRONMENT`. | Medium | Fixed in this PR. Unknown environments default to redaction; tests cover Azure Production with `NODE_ENV=development` and Azure Development with `NODE_ENV=production`. |
 | Gemini API key was placed in the provider URL query string, where infrastructure may retain URLs in access logs. | Medium | Fixed in this PR. The key is now sent in `x-goog-api-key`; the service test asserts it is absent from the URL. |
 | API test tooling included Critical `vitest`/`tinypool` advisories. | Critical, development-only | Fixed in this PR by aligning API Vitest and coverage tooling to 5.1.1. The updated clean-install CI run is the final lockfile/runtime validation. |
-| Three Moderate development-only advisories remain through `node-pg-migrate`, `glob`, and `minimatch`. | Moderate, development-only | Production audit is clean. npm's proposed node-pg-migrate remediation is a major downgrade; do not apply without migration compatibility testing. Follow-up #30 tracks safe remediation. |
+| Three Moderate development-only advisories affected `node-pg-migrate`, `glob`, and `minimatch`. | Moderate, development-only | Fixed for #30 with a scoped `glob` 14 override. A clean install and full audit report zero vulnerabilities; PostgreSQL migration, rollback, and glob-discovery tests pass. The override crosses the migration tool's declared major-version range and must be revisited when an upstream release supports a fixed version. |
 | Login, registration, Google challenge, and evaluation endpoints have no application-level distributed throttling. | Medium residual | Process-local throttling would not protect a scale-out Functions deployment. Follow-up #28 covers selecting and implementing shared ingress/rate-limit controls before public rollout. |
 | A bearer token cannot be revoked server-side after client logout and can remain usable until its 20-minute expiry. | Low residual | Client logout clears in-memory credentials; short token lifetime bounds, but does not eliminate, the window. Follow-up #28 captures whether server-side revocation is required. |
 | There is no account/progress deletion API or published retention policy; IndexedDB data remains on the device after sign-out. | Medium residual | Account data is account-scoped, but sign-out is not deletion. Follow-up #29 covers retention, local/offline deletion, and server cleanup. Coordinate Exam answer deletion with #22. |
@@ -41,9 +41,9 @@ This is a source, configuration, dependency, and local-test review of the web ap
 - What notice/consent and provider-retention policy should apply before a learner's answer is sent to Gemini? See #10.
 - Which Azure hosting/ingress settings will govern CORS, security headers, trusted proxies, and diagnostic retention? See #13.
 
-No Critical or High production-dependency advisory was found by the production audit. The remaining Moderate findings are development-only and are not represented as fixed.
+No Critical or High production-dependency advisory was found by the production audit. The earlier Moderate development-only findings were subsequently remediated as described above.
 
-The follow-up issues #28, #29, and #30 are currently unassigned. A product/platform owner must accept and assign these risks before issue #6 can be closed; no individual owner or production mitigation has been confirmed. The deployment-dependent controls remain unverified under #13, and the Gemini privacy decision remains open under #10.
+The follow-up issues #28 and #29 are currently unassigned. A product/platform owner must accept and assign these risks before issue #6 can be closed; no individual owner or production mitigation has been confirmed. The deployment-dependent controls remain unverified under #13, and the Gemini privacy decision remains open under #10.
 
 ## Reproducible checks
 
@@ -59,3 +59,5 @@ npm audit
 The audit run for this review found zero production vulnerabilities. The full audit reported three Moderate development-tool findings after the Vitest upgrade; it reported no Critical or High findings. CI also runs the required coverage and icon gates.
 
 On 2026-11-27, `npm ci`, `npm run build`, `npm run test:coverage-gate`, `npm run test:coverage`, and `npm run test:icons` succeeded. `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities; `npm audit` reported three moderate development-only findings tracked by #30. The account-isolation handler tests use mocked authentication and storage; they do not replace a PostgreSQL-backed end-to-end test. Logout does not revoke a previously issued token, as tracked by #28.
+
+After the #30 dependency override, `npm ci` and `npm audit` reported zero vulnerabilities. The migration test ran on PostgreSQL 16 with a fresh, isolated schema and passed all apply, rollback, and glob-discovery checks. To repeat it, set `MIGRATION_TEST_DATABASE_URL` to a disposable PostgreSQL database and run `npm run test:migrations`. The test creates and drops its own randomly named schema; it does not use or modify existing schemas.
