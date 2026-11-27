@@ -18,8 +18,8 @@ import { hasMinimumPasswordCharacters, isPasswordWithinLimits } from '../../../.
   template: `
     <main class="auth-page"><mat-card class="auth-card"><div class="auth-mark"><mat-icon>sailing</mat-icon></div><span class="eyebrow">{{ 'auth.login.eyebrow' | t }}</span><h1>{{ 'auth.login.heading' | t }}</h1><p>{{ 'auth.login.offlineDescription' | t }}</p>
       <form (ngSubmit)="submit()"><mat-form-field appearance="outline"><mat-label>{{ 'auth.login.email' | t }}</mat-label><input matInput type="email" name="email" [(ngModel)]="email" required email autocomplete="email"></mat-form-field><mat-form-field appearance="outline"><mat-label>{{ 'auth.login.password' | t }}</mat-label><input matInput type="password" name="password" [(ngModel)]="password" required autocomplete="current-password"><mat-hint>{{ 'auth.login.passwordHint' | t }}</mat-hint></mat-form-field>
-        @if (!passwordWithinLimits(password)) { <p class="inline-error" role="alert">{{ 'auth.password.limit' | t }}</p> }
-        @if (error()) { <p class="inline-error" role="alert">{{ error() }}</p> }
+        @if (!passwordWithinLimits(password)) { <p class="inline-error visible-error" role="alert">{{ 'auth.password.limit' | t }}</p> }
+        @if (error()) { <p class="inline-error visible-error" role="alert">{{ error() }}</p> }
         <button mat-flat-button type="submit" [disabled]="busy() || !email || !passwordMinimum(password, 8) || !passwordWithinLimits(password)"><mat-icon>login</mat-icon> {{ 'auth.login.submit' | t }}</button>
       </form>
       @if (googleLink(); as link) {
@@ -27,9 +27,9 @@ import { hasMinimumPasswordCharacters, isPasswordWithinLimits } from '../../../.
           <p>{{ 'auth.login.googleLinkDescription' | t }}</p>
           <form (ngSubmit)="confirmGoogleLink()">
             <mat-form-field appearance="outline"><mat-label>{{ 'auth.login.existingPassword' | t }}</mat-label><input matInput type="password" name="googleLinkPassword" [(ngModel)]="googleLinkPassword" required autocomplete="current-password"><mat-hint>{{ 'auth.login.passwordHint' | t }}</mat-hint></mat-form-field>
-            @if (!passwordWithinLimits(googleLinkPassword)) { <p class="inline-error" role="alert">{{ 'auth.password.limit' | t }}</p> }
+            @if (!passwordWithinLimits(googleLinkPassword)) { <p class="inline-error visible-error" role="alert">{{ 'auth.password.limit' | t }}</p> }
             <label class="google-link-consent"><input type="checkbox" name="googleLinkConfirmed" [(ngModel)]="googleLinkConfirmed"> {{ 'auth.login.googleLinkConsent' | t }}</label>
-            @if (error()) { <p class="inline-error" role="alert">{{ error() }}</p> }
+            @if (error()) { <p class="inline-error visible-error" role="alert">{{ error() }}</p> }
             <button mat-flat-button type="submit" [disabled]="busy() || !googleLinkConfirmed || !passwordMinimum(googleLinkPassword, 8) || !passwordWithinLimits(googleLinkPassword)"><mat-icon>link</mat-icon> {{ 'auth.login.confirmLink' | t }}</button>
             <button mat-button type="button" (click)="cancelGoogleLink()" [disabled]="busy()">{{ 'auth.login.cancel' | t }}</button>
           </form>

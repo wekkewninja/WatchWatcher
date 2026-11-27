@@ -143,9 +143,60 @@ describe('LoginPage', () => {
     expect(page.error()).toBe('Sign-in is temporarily unavailable. Please try again shortly.');
     expect(page.busy()).toBe(false);
   });
+
+  it('renders service failures as visible accessible alerts in the sign-in form', async () => {
+    await TestBed.configureTestingModule({ imports: [LoginPage], providers: [
+      { provide: AuthStateService, useValue: auth }, provideRouter([]),
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(LoginPage);
+    const page = fixture.componentInstance;
+    page.email = 'sailor@example.com';
+    page.password = 'valid-password';
+    page.googleLink.set(googleCredential);
+    auth.login.mockRejectedValueOnce(Object.assign(new Error('internal detail'), { status: 503 }));
+
+    await page.submit();
+    fixture.detectChanges();
+
+    const alert = fixture.nativeElement.querySelector('form p[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toBe('Sign-in is temporarily unavailable. Please try again shortly.');
+    expect(alert.classList.contains('visible-error')).toBe(true);
+    expect(getComputedStyle(alert).display).not.toBe('none');
+    expect(page.email).toBe('sailor@example.com');
+    expect(page.password).toBe('valid-password');
+    expect(page.busy()).toBe(false);
+    TestBed.resetTestingModule();
+  });
 });
 
 describe('CreateAccountPage', () => {
+  it('renders duplicate-email feedback as a visible accessible alert and preserves form fields', async () => {
+    await TestBed.configureTestingModule({ imports: [CreateAccountPage], providers: [
+      { provide: AuthStateService, useValue: auth }, provideRouter([]),
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(CreateAccountPage);
+    const page = fixture.componentInstance;
+    page.name = 'Sailor';
+    page.email = 'sailor@example.com';
+    page.password = 'valid-password';
+    page.confirmPassword = page.password;
+    page.googleLink.set(googleCredential);
+    auth.createAccount.mockRejectedValueOnce(Object.assign(new Error('internal conflict detail'), { status: 409 }));
+
+    await page.submit();
+    fixture.detectChanges();
+
+    const alert = fixture.nativeElement.querySelector('form p[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toBe('An account may already exist for this email. Try signing in.');
+    expect(alert.classList.contains('visible-error')).toBe(true);
+    expect(getComputedStyle(alert).display).not.toBe('none');
+    expect(page.name).toBe('Sailor');
+    expect(page.email).toBe('sailor@example.com');
+    expect(page.password).toBe('valid-password');
+    expect(page.busy()).toBe(false);
+    TestBed.resetTestingModule();
+  });
+
   it('enforces the Unicode code-point minimum in the rendered form and submit handler', async () => {
     await TestBed.configureTestingModule({ imports: [CreateAccountPage], providers: [
       { provide: AuthStateService, useValue: auth }, provideRouter([]),
