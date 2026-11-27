@@ -41,7 +41,7 @@ export interface GoogleCredentialEvent {
     <div class="google-sign-in">
       <div #buttonHost class="google-sign-in-button"></div>
       @if (loading()) { <small role="status">{{ 'google.preparing' | t }}</small> }
-      @if (error()) { <small class="inline-error" role="alert">{{ error() }}</small> }
+      @if (error()) { <small class="inline-error visible-error" role="alert">{{ error() }}</small> }
       @if (error()) { <button class="google-sign-in-retry" type="button" (click)="refresh()">{{ 'google.retry' | t }}</button> }
     </div>
   `,
